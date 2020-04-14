@@ -2,7 +2,8 @@ import fetch from 'node-fetch';
 import config from 'config';
 import cron from 'node-cron';
 import { sortBy, sumBy, maxBy, minBy } from 'lodash';
-import database from '../database/database.js';
+import rates from '../database/rates.js';
+import moment from 'moment';
 
 class RestClient {
   constructor() {
@@ -16,7 +17,11 @@ class RestClient {
     try {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
-      const response = await fetch(`${url}/${token}/`);
+      const response = await fetch(`${url}/${token}/`, {
+        headers: {
+          'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
+        }
+      });
       const json = await response.json();
       const nextState = this.parseMBResult(json);
 
@@ -29,7 +34,6 @@ class RestClient {
         this.state.length &&
         this.state[0].date === nextState[0].date
       ) {
-        database.removeRate();
       }
 
       return nextState;
@@ -41,7 +45,7 @@ class RestClient {
   start() {
     const options = {
       scheduled: true,
-      timezone: 'Europe/Kiev',
+      timezone: config.get('default_timezone')
     };
 
     this.updates = cron.schedule(
@@ -64,23 +68,19 @@ class RestClient {
       data.filter((r) => r.currency === currency),
       'date'
     );
-    const { date, pointDate, currency, ask, bid } = latest[latest.length - 1];
+    const { date, pointDate, ask, bid } = latest[latest.length - 1];
 
     const result = {
-      date,
-      pointDate,
+      date: new moment(date),
+      pointDate: new moment(pointDate),
       currency,
       ask,
       bid,
       type,
-      trend: {
-        ask: sumBy(latest, ({ trendAsk }) => +trendAsk),
-        bid: sumBy(latest, ({ trendBid }) => +trendBid),
-      },
-      limit: {
-        max: maxBy(latest, 'ask'),
-        min: minBy(latest, 'bid'),
-      },
+      trendAsk: sumBy(latest, ({ trendAsk }) => +trendAsk),
+      trendBid: sumBy(latest, ({ trendBid }) => +trendBid),
+      maxAsk: maxBy(latest, 'ask'),
+      minBid: minBy(latest, 'bid')
     };
 
     return result;
@@ -93,6 +93,8 @@ class RestClient {
 
     return this.state;
   }
+
+  updateMetrics() {}
 }
 
 const restClient = new RestClient();

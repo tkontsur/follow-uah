@@ -1,6 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api';
 import config from 'config';
-import database from '../database/database.js';
+import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
 
 export default class UahTelegramBot {
@@ -18,10 +18,10 @@ export default class UahTelegramBot {
   addUser(msg) {
     const chatId = msg.chat.id;
 
-    database.addUser({
+    users.addUser({
       chatId,
       firstName: msg.from.first_name,
-      preferences: {},
+      preferences: {}
     });
     this.bot.sendMessage(chatId, config.get('telegram.text.welcome'));
   }
@@ -29,7 +29,7 @@ export default class UahTelegramBot {
   removeUser(msg) {
     const chatId = msg.chat.id;
 
-    database.removeUser(chatId);
+    users.removeUser(chatId);
     this.bot.sendMessage(chatId, config.get('telegram.text.goodbye'));
   }
 
@@ -43,8 +43,7 @@ export default class UahTelegramBot {
             .map(
               (
                 {
-                  latest: { currency, ask, bid, pointDate },
-                  trend: { ask: askTrend, bid: bidTrend },
+                  latest: { currency, ask, bid, pointDate, askTrend, bidTrend }
                 },
                 index,
                 all
