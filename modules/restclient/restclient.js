@@ -1,7 +1,10 @@
 import fetch from 'node-fetch';
 import config from 'config';
 import cron from 'node-cron';
-import { sortBy, sumBy, max, min } from 'lodash';
+import sortBy from 'lodash/sortBy.js';
+import sumBy from 'lodash/sumBy.js';
+import max from 'lodash/max.js';
+import min from 'lodash/min.js';
 import rates from '../database/rates.js';
 import moment from 'moment';
 
