@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import config from 'config';
+import moment from 'moment';
 
 class Rates {
   constructor() {
@@ -78,7 +79,11 @@ class Rates {
             and currency = '${currency}'`
       );
 
-      return data;
+      if (data[0].length) {
+        return data[0][0];
+      } else {
+        return null;
+      }
     } catch (err) {
       console.error('Error while fetching rate:.');
       console.error(err);
@@ -101,9 +106,11 @@ class Rates {
 
   async getEarliestDate() {
     try {
-      const data = await this.connection.execute('select min(date) from RATES');
+      const data = await this.connection.execute(
+        'select min(date) as earliest from RATES'
+      );
 
-      return new moment(data);
+      return new moment(data[0][0].earliest);
     } catch (err) {
       console.error('Error while fetching rate:.');
       console.error(err);

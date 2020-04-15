@@ -1,5 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api';
 import config from 'config';
+import moment from 'moment';
 import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
 
@@ -13,6 +14,7 @@ export default class UahTelegramBot {
     this.bot.onText(/\/start/, this.addUser.bind(this));
     this.bot.onText(/\/stop/, this.removeUser.bind(this));
     this.bot.onText(/\/current/, this.getCurrentRate.bind(this));
+    this.bot.onText(/\/trigger (.+)/, this.triggerTest.bind(this));
   }
 
   addUser(msg) {
@@ -21,7 +23,7 @@ export default class UahTelegramBot {
     users.addUser({
       chatId,
       firstName: msg.from.first_name,
-      preferences: {}
+      joinedAt: new moment().format('YYYY-MM-DD')
     });
     this.bot.sendMessage(chatId, config.get('telegram.text.welcome'));
   }
@@ -63,6 +65,14 @@ export default class UahTelegramBot {
         console.error(err);
         this.bot.sendMessage(msg.chat.id, 'Помилка :(');
       });
+  }
+
+  triggerTest(msg, match) {
+    if (typeof restClient.tests[match[1]] === 'function') {
+      restClient.tests[match[1]]().then((result) =>
+        this.bot.sendMessage(msg.chat.id, JSON.stringify(result))
+      );
+    }
   }
 }
 

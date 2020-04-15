@@ -10,6 +10,7 @@ class RestClient {
     this.state = [];
     this.parseMBResult = this.parseMBResult.bind(this);
     this.fetchData = this.fetchData.bind(this);
+    this.fetchHistory = this.fetchHistory.bind(this);
     this.updateMetrics = this.updateMetrics.bind(this);
   }
 
@@ -17,6 +18,9 @@ class RestClient {
     try {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
+
+      console.log('Fetch triggered');
+
       const response = await fetch(
         `${url}/${token}/${date ? `${date}/` : ''}`,
         {
@@ -46,6 +50,13 @@ class RestClient {
     }
   }
 
+  async fetchHistory() {
+    console.log('Fetch history triggered');
+    return await rates
+      .getEarliestDate()
+      .then((d) => this.fetchData(d.add(-1, 'd').format('YYYY-MM-DD')));
+  }
+
   start() {
     const options = {
       scheduled: true,
@@ -54,17 +65,14 @@ class RestClient {
 
     this.updates = cron.schedule(
       '30 10-18 * * 1-5',
-      () => this.fetchData,
+      () => this.fetchData(),
       options
     );
 
     if (config.get('api.getHistory')) {
       this.historyUpdates = cron.schedule(
         '30 0-9,19-23 * * *',
-        () =>
-          rates
-            .getEarliestDate()
-            .then((d) => this.fetchData(d.add(-1, d).format('YYYY-MM-DD'))),
+        this.fetchHistory,
         options
       );
     }
@@ -114,5 +122,14 @@ class RestClient {
 }
 
 const restClient = new RestClient();
+restClient.tests = {
+  async history() {
+    return await restClient.fetchHistory();
+  },
+
+  async getrate() {
+    return await rates.getRate(new moment(new Date()), 'USD', 'MB');
+  }
+};
 
 export default restClient;
