@@ -1,23 +1,17 @@
-import mysql from 'mysql';
+import mysql from 'mysql2/promise';
 import config from 'config';
 
 class Rates {
   constructor() {
-    this.connection = mysql.createConnection({
-      host: config.get('mysql.host'),
-      user: config.get('mysql.user'),
-      database: config.get('mysql.db'),
-      password: config.get('mysql.password'),
-      timezone: config.get('default_timezone')
-    });
-
-    this.connection.connect(function (err) {
-      if (err) {
-        return console.error('Failed to connect to MySQL: ' + err.message);
-      } else {
-        console.log('Connected to MySQL');
-      }
-    });
+    mysql
+      .createConnection({
+        host: config.get('mysql.host'),
+        user: config.get('mysql.user'),
+        database: config.get('mysql.db'),
+        password: config.get('mysql.password'),
+        timezone: config.get('default_timezone')
+      })
+      .then((connection) => (this.connection = connection));
 
     process.on('SIGINT', () => {
       console.log('Closing connection to MySQL');
@@ -31,24 +25,89 @@ class Rates {
     });
   }
 
-  addRate(rate) {}
+  async addRate({
+    date,
+    type,
+    currency,
+    pointDate,
+    ask,
+    bid,
+    trendAsk,
+    trendBid,
+    maxAsk,
+    minBid
+  }) {
+    try {
+      let updateResult = await this.connection.execute(
+        `update RATES
+        set point_date = '${pointDate.format('YYYY-MM-DD HH:mm:ss')}',
+            ask = ${ask},
+            bid = ${bid},
+            trend_ask = ${trendAsk},
+            trend_bid = ${trendBid},
+            max_ask = ${maxAsk},
+            min_bid = ${minBid}
+        where date = '${date.format('YYYY-MM-DD')}' 
+            and type = '${type}' 
+            and currency = '${currency}'`
+      );
 
-  async getRate(date, currency, type) {
-    const data = await this.dynamo
-      .get({
-        TableName: 'Rate'
-      })
-      .promise();
+      if (updateResult[0].affectedRows === 0) {
+        updateResult = await this.connection.execute(
+          `insert into RATES (date, type, currency, point_date, ask, bid, trend_ask, trend_bid, max_ask, min_bid)
+            values ('${date.format('YYYY-MM-DD')}', '${type}', '${currency}', 
+                '${pointDate.format('YYYY-MM-DD HH:mm:ss')}',
+                ${ask}, ${bid}, ${trendAsk}, ${trendBid}, ${maxAsk}, ${minBid}
+            )`
+        );
 
-    return data.Item;
+        return updateResult;
+      }
+    } catch (err) {
+      console.error('Error while adding rate.');
+      console.error(err);
+    }
   }
 
-  removeRate(date, currency, type) {
-    return this.dynamo
-      .delete({
-        TableName: 'Rate'
-      })
-      .promise();
+  async getRate(date, currency, type) {
+    try {
+      const data = await this.connection.execute(
+        `select * from RATES 
+        where date = '${date.format('YYYY-MM-DD')}' 
+            and type = '${type}' 
+            and currency = '${currency}'`
+      );
+
+      return data;
+    } catch (err) {
+      console.error('Error while fetching rate:.');
+      console.error(err);
+    }
+  }
+
+  removeRate({ date, currency, type }) {
+    try {
+      return this.connection.execute(
+        `delete from RATES 
+        where date = '${date.format('YYYY-MM-DD')}' 
+        and type = '${type}' 
+        and currency = '${currency}'`
+      );
+    } catch (err) {
+      console.error('Error while deleting rate.');
+      console.error(err);
+    }
+  }
+
+  async getEarliestDate() {
+    try {
+      const data = await this.connection.execute('select min(date) from RATES');
+
+      return new moment(data);
+    } catch (err) {
+      console.error('Error while fetching rate:.');
+      console.error(err);
+    }
   }
 }
 

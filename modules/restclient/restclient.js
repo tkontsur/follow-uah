@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import config from 'config';
 import cron from 'node-cron';
-import { sortBy, sumBy, maxBy, minBy } from 'lodash';
+import { sortBy, sumBy, max, min } from 'lodash';
 import rates from '../database/rates.js';
 import moment from 'moment';
 
@@ -13,15 +13,18 @@ class RestClient {
     this.updateMetrics = this.updateMetrics.bind(this);
   }
 
-  async fetchData() {
+  async fetchData(date) {
     try {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
-      const response = await fetch(`${url}/${token}/`, {
-        headers: {
-          'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
+      const response = await fetch(
+        `${url}/${token}/${date ? `${date}/` : ''}`,
+        {
+          headers: {
+            'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
+          }
         }
-      });
+      );
       const json = await response.json();
       const nextState = this.parseMBResult(json);
 
@@ -30,10 +33,11 @@ class RestClient {
       }
 
       if (
-        this.state &&
-        this.state.length &&
-        this.state[0].date === nextState[0].date
+        !this.state ||
+        !this.state.length ||
+        !this.state[0].pointDate.isSame(nextState[0].pointDate)
       ) {
+        nextState.forEach(rates.addRate, rates);
       }
 
       return nextState;
@@ -53,6 +57,17 @@ class RestClient {
       () => this.fetchData,
       options
     );
+
+    if (config.get('api.getHistory')) {
+      this.historyUpdates = cron.schedule(
+        '30 0-9,19-23 * * *',
+        () =>
+          rates
+            .getEarliestDate()
+            .then((d) => this.fetchData(d.add(-1, d).format('YYYY-MM-DD'))),
+        options
+      );
+    }
   }
 
   parseMBResult(data) {
@@ -79,8 +94,8 @@ class RestClient {
       type,
       trendAsk: sumBy(latest, ({ trendAsk }) => +trendAsk),
       trendBid: sumBy(latest, ({ trendBid }) => +trendBid),
-      maxAsk: maxBy(latest, 'ask'),
-      minBid: minBy(latest, 'bid')
+      maxAsk: max(latest.map(({ ask }) => +ask)),
+      minBid: min(latest.map(({ bid }) => +bid))
     };
 
     return result;
@@ -88,7 +103,8 @@ class RestClient {
 
   async getCurrentState() {
     if (!this.state.length) {
-      return await this.fetchData();
+      this.state = await this.fetchData();
+      return this.state;
     }
 
     return this.state;

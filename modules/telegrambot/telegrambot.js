@@ -42,17 +42,17 @@ export default class UahTelegramBot {
           rates
             .map(
               (
-                {
-                  latest: { currency, ask, bid, pointDate, askTrend, bidTrend }
-                },
+                { currency, ask, bid, pointDate, trendAsk, trendBid },
                 index,
                 all
               ) =>
                 `${currency.toUpperCase()}: ${ask} ${getTrend(
-                  askTrend
-                )} ${bid} ${getTrend(bidTrend)}${
+                  trendAsk
+                )} ${bid} ${getTrend(trendBid)}${
                   index === all.length - 1
-                    ? `\nОстаннє оновлення: ${pointDate}`
+                    ? `\nОстаннє оновлення: ${pointDate.format(
+                        'YYYY-MM-DD HH:mm'
+                      )}`
                     : ''
                 }`
             )
@@ -67,9 +67,5 @@ export default class UahTelegramBot {
 }
 
 function getTrend(value) {
-  if (value === 0) {
-    return '(0)';
-  }
-
-  return value > 0 ? `(+${value})` : `(-${value})`;
+  return `(${Math.round((value + Number.EPSILON) * 10000) / 10000})`;
 }
