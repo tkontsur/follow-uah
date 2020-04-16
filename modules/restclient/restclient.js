@@ -5,15 +5,18 @@ import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
+import find from 'lodash/find.js';
 import rates from '../database/rates.js';
 import moment from 'moment';
 
 class RestClient {
-  constructor() {
+  constructor(bot) {
     this.state = [];
+    this.bot = bot;
     this.parseMBResult = this.parseMBResult.bind(this);
     this.fetchData = this.fetchData.bind(this);
     this.fetchHistory = this.fetchHistory.bind(this);
+    this.updateState = this.updateState.bind(this);
     this.updateMetrics = this.updateMetrics.bind(this);
   }
 
@@ -22,7 +25,7 @@ class RestClient {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
 
-      console.log('Fetch triggered');
+      console.log(`${new Date()}: Fetch triggered`);
 
       const response = await fetch(
         `${url}/${token}/${date ? `${date}/` : ''}`,
@@ -33,6 +36,11 @@ class RestClient {
         }
       );
       const json = await response.json();
+
+      if (!json.length) {
+        return [];
+      }
+
       const nextState = this.parseMBResult(json);
 
       if (nextState.length === 0) {
@@ -54,10 +62,13 @@ class RestClient {
   }
 
   async fetchHistory() {
-    console.log('Fetch history triggered');
-    return await rates
-      .getEarliestDate()
-      .then((d) => this.fetchData(d.add(-1, 'd').format('YYYY-MM-DD')));
+    if (!this.nextHistory) {
+      this.nextHistory = await rates.getEarliestDate();
+    }
+
+    console.log(`${new Date()}: Fetch history triggered`);
+    this.nextHistory.add(-1, 'd');
+    return this.fetchData(this.nextHistory.format('YYYY-MM-DD'));
   }
 
   start() {
@@ -68,7 +79,7 @@ class RestClient {
 
     this.updates = cron.schedule(
       '30 10-18 * * 1-5',
-      () => this.fetchData(),
+      () => this.fetchData().then(this.updateState),
       options
     );
 
@@ -121,7 +132,60 @@ class RestClient {
     return this.state;
   }
 
-  updateMetrics() {}
+  async updateState(result) {
+    this.state = result;
+
+    if (
+      !this.stateYesterday ||
+      this.stateYesterday.date.isSame(result.date, 'd')
+    ) {
+      const yesterday = result.date.clone().add(-1, 'd');
+      this.stateYesterday = await rates.getRates(yesterday, result.type);
+    }
+
+    this.updateMetrics(result, this.stateYesterday);
+  }
+
+  updateMetrics(today, yesterday) {
+    const results = today.map((t) => {
+      const y = find(yesterday, (x) => x.currency === t.currency);
+
+      if (!y) {
+        return {
+          currency: t.currency,
+          trend: 0
+        };
+      }
+
+      // rate has changed direction since yesterday
+      if (y.trendAsk * t.trendAsk < 0 || y.trendBid * t.trendBid < 0) {
+        // minimum is more than 1% higher than maximum yesterday
+        if (t.bid - y.maxAsk * 0.01 > y.maxAsk) {
+          return {
+            currency: t.currency,
+            trend: 1
+          };
+        }
+
+        // maximum is more than 1% lower than minimum yesterday
+        if (t.ask + y.maxBid * 0.01 < y.maxBid) {
+          return {
+            currency: t.currency,
+            trend: -1
+          };
+        }
+
+        return {
+          currency: t.currency,
+          trend: 0
+        };
+      }
+    });
+
+    results.forEach((r) => {
+      if (r.trend !== 0) console.log(trend);
+    });
+  }
 }
 
 const restClient = new RestClient();
@@ -131,7 +195,11 @@ restClient.tests = {
   },
 
   async getrate() {
-    return await rates.getRate(new moment(new Date()), 'USD', 'MB');
+    return await rates.getRate(
+      new moment(new Date()).add(-1, 'd'),
+      'USD',
+      'MB'
+    );
   }
 };
 

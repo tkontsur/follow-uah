@@ -1,16 +1,18 @@
 import mysql from 'mysql2/promise.js';
 import config from 'config';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 class Rates {
   constructor() {
+    moment.tz.setDefault(config.get('default_timezone'));
+
     mysql
       .createConnection({
         host: config.get('mysql.host'),
         user: config.get('mysql.user'),
         database: config.get('mysql.db'),
         password: config.get('mysql.password'),
-        timezone: config.get('default_timezone')
+        timezone: moment().tz(config.get('default_timezone')).format('Z')
       })
       .then((connection) => (this.connection = connection));
 
@@ -80,7 +82,12 @@ class Rates {
       );
 
       if (data[0].length) {
-        return data[0][0];
+        const { date, pointDate } = data[0][0];
+        return {
+          ...data[0][0],
+          date: new moment(date),
+          pointDate: new moment(pointDate)
+        };
       } else {
         return null;
       }
