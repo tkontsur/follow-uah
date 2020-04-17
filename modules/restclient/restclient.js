@@ -7,6 +7,7 @@ import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import find from 'lodash/find.js';
 import rates from '../database/rates.js';
+import users from '../database/users';
 import moment from 'moment';
 
 class RestClient {
@@ -42,10 +43,6 @@ class RestClient {
       }
 
       const nextState = this.parseMBResult(json);
-
-      if (nextState.length === 0) {
-        return;
-      }
 
       if (
         !this.state ||
@@ -147,7 +144,7 @@ class RestClient {
   }
 
   updateMetrics(today, yesterday) {
-    const results = today.map((t) => {
+    const changes = today.map((t) => {
       const y = find(yesterday, (x) => x.currency === t.currency);
 
       if (!y) {
@@ -182,9 +179,13 @@ class RestClient {
       }
     });
 
-    results.forEach((r) => {
-      if (r.trend !== 0) console.log(trend);
-    });
+    if (changes.some((r) => r.trend !== 0)) {
+      const chats = users.getSubscribedChats('all');
+
+      changes
+        .filter((r) => r.trend !== 0)
+        .forEach((change) => this.bot.notifyUsers(change, t, chats));
+    }
   }
 }
 
@@ -194,12 +195,43 @@ restClient.tests = {
     return await restClient.fetchHistory();
   },
 
-  async getrate() {
-    return await rates.getRate(
-      new moment(new Date()).add(-1, 'd'),
-      'USD',
-      'MB'
+  async getrates() {
+    return await rates.getRates(new moment(new Date()).add(-1, 'd'), 'MB');
+  },
+
+  async allusers() {
+    return await users.getSubscribedChats();
+  },
+
+  async compare() {
+    const today = await this.getrates();
+
+    setTimeout(
+      () =>
+        restClient.updateMetrics(today, [
+          {
+            currency: 'usd',
+            ask: 26.09,
+            bid: 26.06,
+            trendAsk: -0.15,
+            trendBid: -0.15,
+            maxAsk: 26.09,
+            minBid: 26.06
+          },
+          {
+            currency: 'eur',
+            ask: 30.09,
+            bid: 30.06,
+            trendAsk: 0.15,
+            trendBid: 0.15,
+            maxAsk: 30.09,
+            minBid: 30.06
+          }
+        ]),
+      1000
     );
+
+    return 'Started';
   }
 };
 

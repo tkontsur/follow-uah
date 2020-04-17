@@ -21,6 +21,7 @@ export default class UahTelegramBot {
     const chatId = msg.chat.id;
 
     users.addUser({
+      subscription: 'all',
       chatId,
       firstName: msg.from.first_name,
       joinedAt: new moment().format('YYYY-MM-DD')
@@ -39,32 +40,38 @@ export default class UahTelegramBot {
     restClient
       .getCurrentState()
       .then((rates) =>
-        this.bot.sendMessage(
-          msg.chat.id,
-          rates
-            .map(
-              (
-                { currency, ask, bid, pointDate, trendAsk, trendBid },
-                index,
-                all
-              ) =>
-                `${currency.toUpperCase()}: ${ask} ${getTrend(
-                  trendAsk
-                )} ${bid} ${getTrend(trendBid)}${
-                  index === all.length - 1
-                    ? `\nОстаннє оновлення: ${pointDate.format(
-                        'YYYY-MM-DD HH:mm'
-                      )}`
-                    : ''
-                }`
-            )
-            .join('\n')
-        )
+        this.bot.sendMessage(msg.chat.id, rates.map(this.writeRate).join('\n'))
       )
       .catch((err) => {
         console.error(err);
         this.bot.sendMessage(msg.chat.id, 'Помилка :(');
       });
+  }
+
+  notifyUsers(change, state, chats) {
+    const { currency, trend } = change;
+
+    for (const c in chats) {
+      this.bot.sendMessage(
+        c,
+        `${currency.toUpperCase()} почав ${trend > 0 ? 'рости' : 'падати'}.
+        ${this.writeRate(state)}`
+      );
+    }
+  }
+
+  writeRate(
+    { currency, ask, bid, pointDate, trendAsk, trendBid },
+    index = -1,
+    all = []
+  ) {
+    return `${currency.toUpperCase()}: ${ask} ${getTrend(
+      trendAsk
+    )} ${bid} ${getTrend(trendBid)}${
+      index === all.length - 1
+        ? `\nОстаннє оновлення: ${pointDate.format('YYYY-MM-DD HH:mm')}`
+        : ''
+    }`;
   }
 
   triggerTest(msg, match) {

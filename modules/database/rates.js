@@ -82,12 +82,26 @@ class Rates {
       );
 
       if (data[0].length) {
-        const { date, pointDate } = data[0][0];
-        return {
-          ...data[0][0],
-          date: new moment(date),
-          pointDate: new moment(pointDate)
-        };
+        return this.addMoment(data[0][0]);
+      } else {
+        return null;
+      }
+    } catch (err) {
+      console.error('Error while fetching rate:.');
+      console.error(err);
+    }
+  }
+
+  async getRates(date, type) {
+    try {
+      const data = await this.connection.execute(
+        `select * from RATES 
+        where date = '${date.format('YYYY-MM-DD')}' 
+            and type = '${type}'`
+      );
+
+      if (data[0].length) {
+        return data[0].map(this.addMoment);
       } else {
         return null;
       }
@@ -122,6 +136,15 @@ class Rates {
       console.error('Error while fetching rate:.');
       console.error(err);
     }
+  }
+
+  addMoment(rate) {
+    const { date, pointDate } = rate;
+    return {
+      ...rate,
+      date: new moment(date),
+      pointDate: new moment(pointDate)
+    };
   }
 }
 
