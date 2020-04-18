@@ -5,7 +5,7 @@ import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
-import find from 'lodash/find.js';
+import keyBy from 'lodash/keyBy.js';
 import rates from '../database/rates.js';
 import users from '../database/users';
 import moment from 'moment';
@@ -144,8 +144,11 @@ class RestClient {
   }
 
   updateMetrics(today, yesterday) {
+    const todayByCurrency = keyBy(today, 'currency');
+    const yesterdayByCurrency = keyBy(yesterday, 'currency');
+
     const changes = today.map((t) => {
-      const y = find(yesterday, (x) => x.currency === t.currency);
+      const y = yesterdayByCurrency[t.currency];
 
       if (!y) {
         return {
@@ -165,7 +168,7 @@ class RestClient {
         }
 
         // maximum is more than 1% lower than minimum yesterday
-        if (t.ask + y.maxBid * 0.01 < y.maxBid) {
+        if (t.ask + y.minBid * 0.01 < y.minBid) {
           return {
             currency: t.currency,
             trend: -1
@@ -180,11 +183,19 @@ class RestClient {
     });
 
     if (changes.some((r) => r.trend !== 0)) {
-      const chats = users.getSubscribedChats('all');
-
-      changes
-        .filter((r) => r.trend !== 0)
-        .forEach((change) => this.bot.notifyUsers(change, t, chats));
+      users
+        .getSubscribedChats('all')
+        .then((chats) =>
+          changes
+            .filter((r) => r.trend !== 0)
+            .forEach((change) =>
+              this.bot.notifyUsers(
+                change,
+                todayByCurrency[change.currency],
+                chats
+              )
+            )
+        );
     }
   }
 }
@@ -196,7 +207,7 @@ restClient.tests = {
   },
 
   async getrates() {
-    return await rates.getRates(new moment(new Date()).add(-1, 'd'), 'MB');
+    return await rates.getRates(new moment('2020-04-17'), 'MB');
   },
 
   async allusers() {

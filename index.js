@@ -1,6 +1,7 @@
 import UahTelegramBot from './modules/telegrambot/telegrambot.js';
 import restClient from './modules/restclient/restclient.js';
 
-new UahTelegramBot();
+const telegramBot = new UahTelegramBot();
 
 restClient.start();
+restClient.bot = telegramBot;

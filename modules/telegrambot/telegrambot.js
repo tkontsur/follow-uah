@@ -51,13 +51,14 @@ export default class UahTelegramBot {
   notifyUsers(change, state, chats) {
     const { currency, trend } = change;
 
-    for (const c in chats) {
+    chats.forEach((c) =>
       this.bot.sendMessage(
         c,
-        `${currency.toUpperCase()} почав ${trend > 0 ? 'рости' : 'падати'}.
-        ${this.writeRate(state)}`
-      );
-    }
+        `${currency.toUpperCase()} почав ${
+          trend > 0 ? 'рости' : 'падати'
+        }.\n${this.writeRate(state)}`
+      )
+    );
   }
 
   writeRate(

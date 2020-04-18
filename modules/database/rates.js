@@ -82,7 +82,7 @@ class Rates {
       );
 
       if (data[0].length) {
-        return this.addMoment(data[0][0]);
+        return this.normalize(data[0][0]);
       } else {
         return null;
       }
@@ -101,7 +101,7 @@ class Rates {
       );
 
       if (data[0].length) {
-        return data[0].map(this.addMoment);
+        return data[0].map(this.normalize);
       } else {
         return null;
       }
@@ -138,12 +138,31 @@ class Rates {
     }
   }
 
-  addMoment(rate) {
-    const { date, pointDate } = rate;
+  normalize(rate) {
+    const {
+      date,
+      currency,
+      point_date,
+      type,
+      ask,
+      bid,
+      trend_ask,
+      trend_bid,
+      max_ask,
+      min_bid
+    } = rate;
+
     return {
-      ...rate,
       date: new moment(date),
-      pointDate: new moment(pointDate)
+      pointDate: new moment(point_date),
+      currency,
+      type,
+      ask: +ask,
+      bid: +bid,
+      trendAsk: +trend_ask,
+      trendBid: +trend_bid,
+      maxAsk: +max_ask,
+      minBid: +min_bid
     };
   }
 }
