@@ -70,7 +70,9 @@ export default class UahTelegramBot {
       trendAsk
     )} ${bid} ${getTrend(trendBid)}${
       index === all.length - 1
-        ? `\nОстаннє оновлення: ${pointDate.format('YYYY-MM-DD HH:mm')}`
+        ? `\nОстаннє оновлення: ${pointDate.format(
+            'DD MMMM YYYY HH:mm'
+          )}\nБільше на http://www.minfin.com.ua/currency/`
         : ''
     }`;
   }

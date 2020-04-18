@@ -4,8 +4,6 @@ import moment from 'moment-timezone';
 
 class Rates {
   constructor() {
-    moment.tz.setDefault(config.get('default_timezone'));
-
     mysql
       .createConnection({
         host: config.get('mysql.host'),
