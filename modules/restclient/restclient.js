@@ -65,7 +65,12 @@ class RestClient {
 
     console.log(`${new Date()}: Fetch history triggered`);
     this.nextHistory.add(-1, 'd');
-    return this.fetchData(this.nextHistory.format('YYYY-MM-DD'));
+    const result = await this.fetchData(this.nextHistory.format('YYYY-MM-DD'));
+
+    if (!config.get('api.getHistory')) {
+      this.historyUpdates.stop();
+    }
+    return result;
   }
 
   start() {
