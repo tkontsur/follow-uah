@@ -25,9 +25,9 @@ DROP TABLE IF EXISTS `RATES`;
 CREATE TABLE `RATES` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `date` date NOT NULL,
-  `currency` varchar(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',
+  `currency` varchar(3) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
   `point_date` timestamp NOT NULL,
-  `type` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',
+  `type` varchar(4) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
   `ask` decimal(12,4) NOT NULL,
   `bid` decimal(12,4) NOT NULL,
   `trend_ask` decimal(12,4) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE `RATES` (
   `min_bid` decimal(12,4) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `ix_date_type_currency` (`date`,`type`,`currency`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

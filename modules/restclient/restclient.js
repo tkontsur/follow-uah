@@ -7,7 +7,7 @@ import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import keyBy from 'lodash/keyBy.js';
 import rates from '../database/rates.js';
-import users from '../database/users';
+import users from '../database/users.js';
 import moment from 'moment';
 
 class RestClient {
@@ -26,7 +26,7 @@ class RestClient {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
 
-      console.log(`${new Date()}: Fetch triggered`);
+      console.log(`${new moment().format()}: Fetch triggered`);
 
       const response = await fetch(
         `${url}/${token}/${date ? `${date}/` : ''}`,
@@ -63,7 +63,7 @@ class RestClient {
       this.nextHistory = await rates.getEarliestDate();
     }
 
-    console.log(`${new Date()}: Fetch history triggered`);
+    console.log(`${new moment().format()}: Fetch history triggered`);
     this.nextHistory.add(-1, 'd');
     const result = await this.fetchData(this.nextHistory.format('YYYY-MM-DD'));
 
@@ -135,14 +135,15 @@ class RestClient {
   }
 
   async updateState(result) {
+    let yesterday = result.date.clone().add(-1, 'd');
     this.state = result;
 
-    if (
-      !this.stateYesterday ||
+    while (
+      !this.stateYesterday || !this.stateYesterday.length ||
       this.stateYesterday.date.isSame(result.date, 'd')
     ) {
-      const yesterday = result.date.clone().add(-1, 'd');
       this.stateYesterday = await rates.getRates(yesterday, result.type);
+      yesterday = yesterday.add(-1, 'd');
     }
 
     this.updateMetrics(result, this.stateYesterday);

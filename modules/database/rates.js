@@ -14,7 +14,7 @@ class Rates {
       })
       .then((connection) => (this.connection = connection));
 
-    process.on('SIGINT', () => {
+    /*process.on('SIGINT', () => {
       console.log('Closing connection to MySQL');
       this.connection.end(function (err) {
         if (err) {
@@ -23,7 +23,7 @@ class Rates {
         }
         console.log('Closed connection to MySQL');
       });
-    });
+    });*/
   }
 
   async addRate({
