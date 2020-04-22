@@ -74,6 +74,7 @@ class RestClient {
   }
 
   start() {
+    const that = this;
     const options = {
       scheduled: true,
       timezone: config.get('default_timezone')
@@ -92,6 +93,18 @@ class RestClient {
         options
       );
     }
+
+    rates.getLatestDates(2).then((response) => {
+      const today = response[0].date;
+      const yesterday = response[response.length - 1].date;
+
+      that.state = response.filter((r) => r.date.isSame(today));
+      that.stateYesterday = response.filter((r) => r.date.isSame(yesterday));
+
+      if (that.state[0].pointDate.add(2, 'h').isBefore(new moment())) {
+        that.fetchData().then(that.updateState);
+      }
+    });
   }
 
   parseMBResult(data) {
@@ -113,8 +126,8 @@ class RestClient {
       date: new moment(date),
       pointDate: new moment(pointDate),
       currency,
-      ask,
-      bid,
+      ask: +ask,
+      bid: +bid,
       type,
       trendAsk: sumBy(latest, ({ trendAsk }) => +trendAsk),
       trendBid: sumBy(latest, ({ trendBid }) => +trendBid),
@@ -135,17 +148,15 @@ class RestClient {
   }
 
   async updateState(result) {
-    let yesterday = result.date.clone().add(-1, 'd');
-    this.state = result;
-
-    while (
-      !this.stateYesterday || !this.stateYesterday.length ||
-      this.stateYesterday.date.isSame(result.date, 'd')
+    if (
+      !this.stateYesterday ||
+      !this.stateYesterday.length ||
+      this.stateYesterday[0].date.isSame(result[0].date, 'd')
     ) {
-      this.stateYesterday = await rates.getRates(yesterday, result.type);
-      yesterday = yesterday.add(-1, 'd');
+      this.stateYesterday = this.state;
     }
 
+    this.state = result;
     this.updateMetrics(result, this.stateYesterday);
   }
 
@@ -180,12 +191,12 @@ class RestClient {
             trend: -1
           };
         }
-
-        return {
-          currency: t.currency,
-          trend: 0
-        };
       }
+
+      return {
+        currency: t.currency,
+        trend: 0
+      };
     });
 
     if (changes.some((r) => r.trend !== 0)) {

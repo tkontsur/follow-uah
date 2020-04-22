@@ -4,16 +4,6 @@ import moment from 'moment-timezone';
 
 class Rates {
   constructor() {
-    mysql
-      .createConnection({
-        host: config.get('mysql.host'),
-        user: config.get('mysql.user'),
-        database: config.get('mysql.db'),
-        password: config.get('mysql.password'),
-        timezone: moment().tz(config.get('default_timezone')).format('Z')
-      })
-      .then((connection) => (this.connection = connection));
-
     /*process.on('SIGINT', () => {
       console.log('Closing connection to MySQL');
       this.connection.end(function (err) {
@@ -24,6 +14,18 @@ class Rates {
         console.log('Closed connection to MySQL');
       });
     });*/
+  }
+
+  async connect() {
+    const connection = await mysql.createConnection({
+      host: config.get('mysql.host'),
+      user: config.get('mysql.user'),
+      database: config.get('mysql.db'),
+      password: config.get('mysql.password'),
+      timezone: moment().tz(config.get('default_timezone')).format('Z')
+    });
+
+    this.connection = connection;
   }
 
   async addRate({
@@ -96,6 +98,25 @@ class Rates {
         `select * from RATES 
         where date = '${date.format('YYYY-MM-DD')}' 
             and type = '${type}'`
+      );
+
+      if (data[0].length) {
+        return data[0].map(this.normalize);
+      } else {
+        return null;
+      }
+    } catch (err) {
+      console.error('Error while fetching rate:.');
+      console.error(err);
+    }
+  }
+
+  async getLatestDates(count) {
+    try {
+      const data = await this.connection.execute(
+        `select distinct * from RATES 
+        order by date desc, type, currency desc
+        limit ${count * 2}`
       );
 
       if (data[0].length) {
