@@ -6,6 +6,7 @@ import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import keyBy from 'lodash/keyBy.js';
+import groupBy from 'lodash/groupBy.js';
 import moment from 'moment';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
@@ -103,7 +104,11 @@ class RestClient {
       that.state = response.filter((r) => r.date.isSame(today));
       that.stateYesterday = response.filter((r) => r.date.isSame(yesterday));
 
-      if (that.state[0].pointDate.add(2, 'h').isBefore(new moment())) {
+      if (
+        that.state[0].pointDate.add(2, 'h').isBefore(new moment()) &&
+        new moment().hour() > 9 &&
+        new moment().hour() < 19
+      ) {
         that.fetchData().then(that.updateState);
       }
     });
@@ -162,7 +167,7 @@ class RestClient {
     this.updateMetrics(result, this.stateYesterday);
   }
 
-  updateMetrics(today, yesterday) {
+  updateMetrics(today, yesterday, dontSend) {
     const todayByCurrency = keyBy(today, 'currency');
     const yesterdayByCurrency = keyBy(yesterday, 'currency');
 
@@ -206,7 +211,7 @@ class RestClient {
         .map(({ currency, trend }) => `${currency}: ${trend}`)
         .join('\n')}`
     );
-    if (changes.some((r) => r.trend !== 0)) {
+    if (!dontSend && changes.some((r) => r.trend !== 0)) {
       users
         .getSubscribedChats('all')
         .then((chats) =>
@@ -221,6 +226,8 @@ class RestClient {
             )
         );
     }
+
+    return changes;
   }
 }
 
@@ -267,6 +274,29 @@ restClient.tests = {
     );
 
     return 'Started';
+  },
+
+  async metrics() {
+    const allData = await rates.getEverything();
+    const currencies = groupBy(allData, 'currency');
+    console.log('*** Start instant metrics test ***');
+
+    for (const c in currencies) {
+      const list = currencies[c];
+      console.log(`Evaluating ${c}`);
+      for (let i = 0; i < list.length - 2; i++) {
+        const today = [list[i]];
+        const yesterday = [list[i + 1]];
+
+        const result = restClient.updateMetrics(today, yesterday, true);
+        console.log(
+          `Result for ${today[0].date} (${today[0].ask}, ${
+            today[0].trendAsk
+          }): ${JSON.stringify(result[0])}`
+        );
+      }
+    }
+    return 'Done';
   }
 };
 

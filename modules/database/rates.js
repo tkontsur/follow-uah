@@ -131,6 +131,24 @@ class Rates {
     }
   }
 
+  async getEverything() {
+    try {
+      const data = await this.connection.execute(
+        `select * from RATES 
+        order by date desc, type, currency desc`
+      );
+
+      if (data[0].length) {
+        return data[0].map(this.normalize);
+      } else {
+        return null;
+      }
+    } catch (err) {
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
+    }
+  }
+
   removeRate({ date, currency, type }) {
     try {
       return this.connection.execute(
