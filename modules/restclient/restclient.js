@@ -200,6 +200,11 @@ class RestClient {
       };
     });
 
+    console.log(
+      `Metrics evaluation results:\n${changes
+        .map(({ currency, trend }) => `${currency}: ${trend}`)
+        .join('\n')}`
+    );
     if (changes.some((r) => r.trend !== 0)) {
       users
         .getSubscribedChats('all')
