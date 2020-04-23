@@ -1,17 +1,18 @@
 import mysql from 'mysql2/promise.js';
 import config from 'config';
 import moment from 'moment-timezone';
+import logger from '../utils/logger.js';
 
 class Rates {
   constructor() {
     /*process.on('SIGINT', () => {
-      console.log('Closing connection to MySQL');
+      logger.info('Closing connection to MySQL');
       this.connection.end(function (err) {
         if (err) {
-          console.log('Failed to close connection to MySQL: ' + err.message);
+          logger.info('Failed to close connection to MySQL: ' + err.message);
           return;
         }
-        console.log('Closed connection to MySQL');
+        logger.info('Closed connection to MySQL');
       });
     });*/
   }
@@ -67,8 +68,8 @@ class Rates {
         return updateResult;
       }
     } catch (err) {
-      console.error('Error while adding rate.');
-      console.error(err);
+      logger.error('Error while adding rate.');
+      logger.error(err);
     }
   }
 
@@ -87,8 +88,8 @@ class Rates {
         return null;
       }
     } catch (err) {
-      console.error('Error while fetching rate:.');
-      console.error(err);
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
     }
   }
 
@@ -106,8 +107,8 @@ class Rates {
         return null;
       }
     } catch (err) {
-      console.error('Error while fetching rate:.');
-      console.error(err);
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
     }
   }
 
@@ -125,8 +126,8 @@ class Rates {
         return null;
       }
     } catch (err) {
-      console.error('Error while fetching rate:.');
-      console.error(err);
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
     }
   }
 
@@ -139,8 +140,8 @@ class Rates {
         and currency = '${currency}'`
       );
     } catch (err) {
-      console.error('Error while deleting rate.');
-      console.error(err);
+      logger.error('Error while deleting rate.');
+      logger.error(err);
     }
   }
 
@@ -152,8 +153,8 @@ class Rates {
 
       return new moment(data[0][0].earliest);
     } catch (err) {
-      console.error('Error while fetching rate:.');
-      console.error(err);
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
     }
   }
 

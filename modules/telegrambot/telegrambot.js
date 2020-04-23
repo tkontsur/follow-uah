@@ -3,6 +3,7 @@ import config from 'config';
 import moment from 'moment';
 import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
+import logger from '../utils/logger.js';
 
 export default class UahTelegramBot {
   constructor() {
@@ -43,7 +44,7 @@ export default class UahTelegramBot {
         this.bot.sendMessage(msg.chat.id, rates.map(this.writeRate).join('\n'))
       )
       .catch((err) => {
-        console.error(err);
+        logger.error(err);
         this.bot.sendMessage(msg.chat.id, 'Помилка :(');
       });
   }

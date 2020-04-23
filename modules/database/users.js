@@ -1,6 +1,7 @@
 import AWS from 'aws-sdk';
 import config from 'config';
 import User from './user.js';
+import logger from '../utils/logger.js';
 
 class Users {
   constructor() {
@@ -23,7 +24,7 @@ class Users {
 
       return data.Item;
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }
 
@@ -41,13 +42,13 @@ class Users {
     try {
       const result = await this.dynamo.query(params).promise();
 
-      console.log(
+      logger.info(
         `Users teble scan consumed ${result.ConsumedCapacity.CapacityUnits} units.`
       );
 
       return result.Items.map((i) => i.chatId);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }
 

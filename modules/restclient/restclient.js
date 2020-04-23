@@ -6,9 +6,10 @@ import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import keyBy from 'lodash/keyBy.js';
+import moment from 'moment';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
-import moment from 'moment';
+import logger from '../utils/logger.js';
 
 class RestClient {
   constructor(bot) {
@@ -26,7 +27,7 @@ class RestClient {
       const url = config.get('api.mburl');
       const token = config.get('api.token');
 
-      console.log(`${new moment().format()}: Fetch triggered`);
+      logger.info(`${new moment().format()}: Fetch triggered`);
 
       const response = await fetch(
         `${url}/${token}/${date ? `${date}/` : ''}`,
@@ -54,7 +55,7 @@ class RestClient {
 
       return nextState;
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }
 
@@ -63,10 +64,10 @@ class RestClient {
       this.nextHistory = await rates.getEarliestDate();
     }
 
-    console.log(`${new moment().format()}: Fetch history triggered`);
+    logger.info(`${new moment().format()}: Fetch history triggered`);
     this.nextHistory.add(-1, 'd');
     const result = await this.fetchData(this.nextHistory.format('YYYY-MM-DD'));
-    console.log(`Got data for ${this.nextHistory.format('YYYY-MM-DD')}`);
+    logger.info(`Got data for ${this.nextHistory.format('YYYY-MM-DD')}`);
 
     if (!config.get('api.getHistory')) {
       this.historyUpdates.stop();
@@ -200,7 +201,7 @@ class RestClient {
       };
     });
 
-    console.log(
+    logger.info(
       `Metrics evaluation results:\n${changes
         .map(({ currency, trend }) => `${currency}: ${trend}`)
         .join('\n')}`
