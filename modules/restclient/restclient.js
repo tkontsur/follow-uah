@@ -7,7 +7,7 @@ import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import keyBy from 'lodash/keyBy.js';
 import groupBy from 'lodash/groupBy.js';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
@@ -184,7 +184,7 @@ class RestClient {
       // rate has changed direction since yesterday
       if (y.trendAsk * t.trendAsk < 0 || y.trendBid * t.trendBid < 0) {
         // minimum is more than 1% higher than maximum yesterday
-        if (t.bid - y.maxAsk * 0.01 > y.maxAsk) {
+        if (t.bid /*- y.maxAsk * 0.01*/ > y.maxAsk && t.trendBid > 0) {
           return {
             currency: t.currency,
             trend: 1
@@ -192,7 +192,7 @@ class RestClient {
         }
 
         // maximum is more than 1% lower than minimum yesterday
-        if (t.ask + y.minBid * 0.01 < y.minBid) {
+        if (t.ask /*+ y.minBid * 0.01*/ < y.minBid && t.trendAsk < 0) {
           return {
             currency: t.currency,
             trend: -1
@@ -206,11 +206,11 @@ class RestClient {
       };
     });
 
-    logger.info(
+    /*logger.info(
       `Metrics evaluation results:\n${changes
         .map(({ currency, trend }) => `${currency}: ${trend}`)
         .join('\n')}`
-    );
+    );*/
     if (!dontSend && changes.some((r) => r.trend !== 0)) {
       users
         .getSubscribedChats('all')
