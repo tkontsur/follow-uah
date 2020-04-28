@@ -7,14 +7,21 @@ import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import keyBy from 'lodash/keyBy.js';
 import groupBy from 'lodash/groupBy.js';
+import uniq from 'lodash/uniq.js';
 import moment from 'moment-timezone';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
+import instantMetrics from '../metrics/instantMetrics.js';
 
 class RestClient {
   constructor(bot) {
-    this.state = [];
+    this.state = {
+      MB: {
+        usd: [],
+        eur: []
+      }
+    };
     this.bot = bot;
     this.parseMBResult = this.parseMBResult.bind(this);
     this.fetchData = this.fetchData.bind(this);
@@ -47,9 +54,8 @@ class RestClient {
       const nextState = this.parseMBResult(json);
 
       if (
-        !this.state ||
-        !this.state.length ||
-        !this.state[0].pointDate.isSame(nextState[0].pointDate)
+        !this.state.MB.usd.length ||
+        !this.state.MB.usd[0].pointDate.isSame(nextState[0].pointDate)
       ) {
         nextState.forEach(rates.addRate, rates);
       }
@@ -97,15 +103,17 @@ class RestClient {
       );
     }
 
-    rates.getLatestDates(2).then((response) => {
+    rates.getLatestDates(4).then((response) => {
       const today = response[0].date;
       const yesterday = response[response.length - 1].date;
+      const currencies = uniq(response.map((r) => r.currency));
 
-      that.state = response.filter((r) => r.date.isSame(today));
-      that.stateYesterday = response.filter((r) => r.date.isSame(yesterday));
+      currencies.forEach((c) => {
+        that.state.MB[c] = response.filter((r) => r.currency === c);
+      });
 
       if (
-        that.state[0].pointDate.add(2, 'h').isBefore(new moment()) &&
+        response[0].pointDate.add(2, 'h').isBefore(new moment()) &&
         new moment().hour() > 9 &&
         new moment().hour() < 19
       ) {
@@ -146,95 +154,60 @@ class RestClient {
   }
 
   async getCurrentState() {
-    if (!this.state.length) {
-      this.state = await this.fetchData();
-      return this.state;
+    if (!this.state.MB.usd.length) {
+      const nextState = await this.fetchData();
+      return nextState;
     }
 
-    return this.state;
+    const { usd, eur } = this.state.MB;
+    return [usd[0], eur[0]];
   }
 
   async updateState(result) {
-    if (
-      !this.stateYesterday ||
-      !this.stateYesterday.length ||
-      this.stateYesterday[0].date.isSame(result[0].date, 'd')
-    ) {
-      this.stateYesterday = this.state;
-    }
-
-    this.state = result;
-    this.updateMetrics(result, this.stateYesterday);
-  }
-
-  updateMetrics(today, yesterday, dontSend) {
-    const todayByCurrency = keyBy(today, 'currency');
-    const yesterdayByCurrency = keyBy(yesterday, 'currency');
-
-    const changes = today.map((t) => {
-      const y = yesterdayByCurrency[t.currency];
-
-      if (!y) {
-        return {
-          currency: t.currency,
-          trend: 0
-        };
+    result.forEach((v) => {
+      const st = this.state.MB[v.currency];
+      if (!st || !st.length) {
+        this.state.MB[v.currency] = v;
+        return;
       }
 
-      // rate has changed direction since yesterday
-      if (y.trendAsk * t.trendAsk < 0 || y.trendBid * t.trendBid < 0) {
-        // minimum is more than 1% higher than maximum yesterday
-        if (t.bid /*- y.maxAsk * 0.01*/ > y.maxAsk && t.trendBid > 0) {
-          return {
-            currency: t.currency,
-            trend: 1
-          };
-        }
-
-        // maximum is more than 1% lower than minimum yesterday
-        if (t.ask /*+ y.minBid * 0.01*/ < y.minBid && t.trendAsk < 0) {
-          return {
-            currency: t.currency,
-            trend: -1
-          };
-        }
+      if (st[0].date.isSame(v.date, 'd')) {
+        st[0] = v;
+      } else {
+        st.unshift(v);
       }
-
-      return {
-        currency: t.currency,
-        trend: 0
-      };
     });
 
-    /*logger.info(
-      `Metrics evaluation results:\n${changes
-        .map(({ currency, trend }) => `${currency}: ${trend}`)
-        .join('\n')}`
-    );*/
-    if (!dontSend && changes.some((r) => r.trend !== 0)) {
-      users
-        .getSubscribedChats('all')
-        .then((chats) =>
-          changes
-            .filter((r) => r.trend !== 0)
-            .forEach((change) =>
-              this.bot.notifyUsers(
-                change,
-                todayByCurrency[change.currency],
-                chats
-              )
-            )
-        );
+    this.updateMetrics(this.state.MB);
+  }
+
+  async updateMetrics(state, dontSend) {
+    const metrics = {};
+    Object.keys(state).forEach(
+      (c) => (metrics[c] = instantMetrics.updateMetrics(state[c]))
+    );
+
+    if (!dontSend && Object.values(metrics).some((v) => v !== 0)) {
+      const sendUsd = metrics.usd !== 0;
+      const allUsers = await users.getSubscribedChats('all');
+
+      if (sendUsd) {
+        this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+      } else {
+        Object.keys(metrics)
+          .filter((c) => metrics[c] !== 0)
+          .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+      }
     }
 
-    return changes;
+    return metrics;
   }
 }
 
 const restClient = new RestClient();
 restClient.tests = {
-  async history() {
-    return await restClient.fetchHistory();
+  async fetchnow() {
+    return await restClient.fetchData();
   },
 
   async getrates() {
@@ -245,37 +218,6 @@ restClient.tests = {
     return await users.getSubscribedChats();
   },
 
-  async compare() {
-    const today = await this.getrates();
-
-    setTimeout(
-      () =>
-        restClient.updateMetrics(today, [
-          {
-            currency: 'usd',
-            ask: 26.09,
-            bid: 26.06,
-            trendAsk: -0.15,
-            trendBid: -0.15,
-            maxAsk: 26.09,
-            minBid: 26.06
-          },
-          {
-            currency: 'eur',
-            ask: 30.09,
-            bid: 30.06,
-            trendAsk: 0.15,
-            trendBid: 0.15,
-            maxAsk: 30.09,
-            minBid: 30.06
-          }
-        ]),
-      1000
-    );
-
-    return 'Started';
-  },
-
   async metrics() {
     const allData = await rates.getEverything();
     const currencies = groupBy(allData, 'currency');
@@ -283,16 +225,14 @@ restClient.tests = {
 
     for (const c in currencies) {
       const list = currencies[c];
+      const count = list.length;
       console.log(`Evaluating ${c}`);
-      for (let i = 0; i < list.length - 2; i++) {
-        const today = [list[i]];
-        const yesterday = [list[i + 1]];
+      for (let i = 0; i < count - 2; i++) {
+        const today = list.slice(i, count - 1);
 
-        const result = restClient.updateMetrics(today, yesterday, true);
+        const result = await restClient.updateMetrics({ [c]: today }, true);
         console.log(
-          `Result for ${today[0].date} (${today[0].ask}, ${
-            today[0].trendAsk
-          }): ${JSON.stringify(result[0])}`
+          `Result for ${today[0].date} (${today[0].ask}, ${today[0].trendAsk}) trend ${result[c]}`
         );
       }
     }

@@ -28,7 +28,8 @@
       "@babel/env"
     ],
     "plugins": [
-      "@babel/plugin-transform-destructuring"
+      "@babel/plugin-transform-destructuring",
+      "@babel/plugin-transform-computed-properties"
     ],
     "sourceMaps": true,
     "retainLines": true
@@ -37,6 +38,7 @@
     "@babel/cli": "^7.8.4",
     "@babel/core": "^7.9.0",
     "@babel/node": "^7.8.7",
+    "@babel/plugin-transform-computed-properties": "^7.8.3",
     "@babel/preset-env": "^7.9.5"
   }
 }

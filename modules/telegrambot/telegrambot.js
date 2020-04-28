@@ -50,14 +50,14 @@ export default class UahTelegramBot {
   }
 
   notifyUsers(change, state, chats) {
-    const { currency, trend } = change;
+    const { currency } = state[0];
 
-    chats.forEach((c) =>
+    chats.forEach((user) =>
       this.bot.sendMessage(
-        c,
+        user,
         `${currency.toUpperCase()} почав ${
-          trend > 0 ? 'рости' : 'падати'
-        }.\n${this.writeRate(state)}`
+          change > 0 ? 'рости' : 'падати'
+        }.\n${this.writeRate(state[0])}`
       )
     );
   }
@@ -67,9 +67,9 @@ export default class UahTelegramBot {
     index = -1,
     all = []
   ) {
-    return `${currency.toUpperCase()}: ${ask} ${getTrend(
-      trendAsk
-    )} ${bid} ${getTrend(trendBid)}${
+    return `${currency.toUpperCase()}: ${bid} ${getTrend(
+      trendBid
+    )} ${ask} ${getTrend(trendAsk)}${
       index === all.length - 1
         ? `\nОстаннє оновлення: ${pointDate.format(
             'DD MMMM YYYY HH:mm'
