@@ -5,14 +5,16 @@ import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
-import keyBy from 'lodash/keyBy.js';
 import groupBy from 'lodash/groupBy.js';
 import uniq from 'lodash/uniq.js';
 import moment from 'moment-timezone';
+import redis from 'redis';
+import { promisify } from 'utils';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
+import ratesHistory from '../database/ratesHistory';
 
 class RestClient {
   constructor(bot) {
@@ -23,12 +25,23 @@ class RestClient {
       },
       lastTriggered: null
     };
+
+    const redisClient = redis.getClient();
+    redisClient.on('error', (error) => {
+      logger.error('Faile to connect to Redis');
+      logger.error(error);
+      this.redisGet = (key) => this.state[key];
+      this.redisSet = (key, value) => (this.state[key] = value);
+    });
+
     this.bot = bot;
     this.parseMBResult = this.parseMBResult.bind(this);
     this.fetchData = this.fetchData.bind(this);
     this.fetchHistory = this.fetchHistory.bind(this);
     this.updateState = this.updateState.bind(this);
     this.updateMetrics = this.updateMetrics.bind(this);
+    this.redisGet = promisify(redisClient.get).bind(client);
+    this.redisSet = promisify(redisClient.set).bind(client);
   }
 
   async fetchData(date) {
@@ -190,18 +203,36 @@ class RestClient {
 
     if (!dontSend && Object.values(metrics).some((v) => v !== 0)) {
       logger.info('Metrics have triggered');
-      if (this.state.lastTriggered && this.lastTriggered.isBefore(new moment(), 'd')) {
+
+      Object.keys(metrics)
+        .filter((c) => metrics[c] !== 0)
+        .forEach((c) => {
+          const { type, date } = state[c][0];
+          ratesHistory.write({
+            type,
+            currency: c,
+            date,
+            trend: metrics[c]
+          });
+        });
+
+      if (
+        this.state.lastTriggered &&
+        this.lastTriggered.isBefore(new moment(), 'd')
+      ) {
         const sendUsd = metrics.usd !== 0;
         const allUsers = await users.getSubscribedChats('all');
         this.lastTriggered = new moment();
         logger.info(allUsers.length);
-        
+
         if (sendUsd) {
           this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
         } else {
           Object.keys(metrics)
             .filter((c) => metrics[c] !== 0)
-            .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+            .forEach((c) =>
+              this.bot.notifyUsers(metrics[c], state[c], allUsers)
+            );
         }
       }
     }
@@ -214,7 +245,7 @@ const restClient = new RestClient();
 restClient.tests = {
   async fetchnow() {
     const server = await restClient.fetchData('2020-04-08');
-    
+
     return `Server ${JSON.stringify(server)}`;
   },
 
