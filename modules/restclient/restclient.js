@@ -20,7 +20,8 @@ class RestClient {
       MB: {
         usd: [],
         eur: []
-      }
+      },
+      lastTriggered: null
     };
     this.bot = bot;
     this.parseMBResult = this.parseMBResult.bind(this);
@@ -188,15 +189,20 @@ class RestClient {
     );
 
     if (!dontSend && Object.values(metrics).some((v) => v !== 0)) {
-      const sendUsd = metrics.usd !== 0;
-      const allUsers = await users.getSubscribedChats('all');
-
-      if (sendUsd) {
-        this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
-      } else {
-        Object.keys(metrics)
-          .filter((c) => metrics[c] !== 0)
-          .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+      logger.info('Metrics have triggered');
+      if (this.state.lastTriggered && this.lastTriggered.isBefore(new moment(), 'd')) {
+        const sendUsd = metrics.usd !== 0;
+        const allUsers = await users.getSubscribedChats('all');
+        this.lastTriggered = new moment();
+        logger.info(allUsers.length);
+        
+        if (sendUsd) {
+          this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+        } else {
+          Object.keys(metrics)
+            .filter((c) => metrics[c] !== 0)
+            .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+        }
       }
     }
 
@@ -207,11 +213,13 @@ class RestClient {
 const restClient = new RestClient();
 restClient.tests = {
   async fetchnow() {
-    return await restClient.fetchData();
+    const server = await restClient.fetchData('2020-04-08');
+    
+    return `Server ${JSON.stringify(server)}`;
   },
 
   async getrates() {
-    return await rates.getRates(new moment('2020-04-17'), 'MB');
+    return await rates.getRates(new moment('2020-04-08'), 'MB');
   },
 
   async allusers() {

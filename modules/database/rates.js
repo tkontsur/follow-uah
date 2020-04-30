@@ -41,6 +41,7 @@ class Rates {
     maxAsk,
     minBid
   }) {
+    logger.info(`Saving ${date}: ${currency} ${ask} (${trendAsk}) ${bid} (${trendBid})`);
     try {
       let updateResult = await this.connection.execute(
         `update RATES
