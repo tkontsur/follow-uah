@@ -217,9 +217,8 @@ class RestClient {
         if (!h) {
           this.redisSet(
             'nextHistory',
-            new moment().add(-4, 'd').format('YYYY-MM-DD')
+            new moment().add(1, 'd').format('YYYY-MM-DD')
           );
-          this.reviseHistory();
         }
       });
     }
