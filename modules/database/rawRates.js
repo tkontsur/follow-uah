@@ -10,7 +10,7 @@ class RawRates {
     this.s3 = new AWS.S3({ apiVersion: '2006-03-01' });
   }
 
-  addDay(rates) {
+  addDay(rates, type) {
     if (!rates || !rates.length) {
       return;
     }
@@ -18,7 +18,7 @@ class RawRates {
     const date = moment(rates[0].date).format('YYYY-MM-DD');
     const uploadParams = {
       Bucket: config.get('aws.bucket'),
-      Key: moment(rates[0].date).format('YYYY-MM-DD'),
+      Key: `${type}-${moment(rates[0].date).format('YYYY-MM-DD')}`,
       Body: JSON.stringify(rates)
     };
 

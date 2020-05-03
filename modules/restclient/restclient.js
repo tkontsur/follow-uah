@@ -85,6 +85,11 @@ class RestClient {
         return [];
       }
 
+      rawRates.addDay(
+        json.filter(({ currency }) => currency !== 'rub'),
+        'MB'
+      );
+
       const nextState = this.parseMBResult(json);
 
       if (
@@ -107,32 +112,34 @@ class RestClient {
         this.nextHistory.clone();
       next.add(-1, 'd');
       const isoDate = next.format('YYYY-MM-DD');
+      const url = config.get('api.mburl');
+      const token = config.get('api.token');
 
       logger.info(`${isoDate}: Fetch revised history triggered`);
       this.nextHistory = next;
       this.redisSet('nextHistory', next.format('YYYY-MM-DD'));
 
-      const response = await fetch(
-        `${url}/${token}/${date ? `${date}/` : ''}`,
-        {
-          headers: {
-            'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
-          }
+      const response = await fetch(`${url}/${token}/${isoDate}`, {
+        headers: {
+          'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
         }
-      );
+      });
       const json = await response.json();
 
       if (!json.length || !new moment(json[0].date).isSame(next, 'd')) {
         return;
       }
 
-      rawRates.addDay(json.filter(({ currency }) => currency !== 'rub'));
+      rawRates.addDay(
+        json.filter(({ currency }) => currency !== 'rub'),
+        'MB'
+      );
 
       const aggregate = this.parseMBResult(json);
-      const history = await rates.getRates(next);
+      const history = await rates.getRates(next, 'MB');
 
       aggregate.forEach((ar) => {
-        hr = history.find(({ currency }) => currency === ar.currency);
+        const hr = history.find(({ currency }) => currency === ar.currency);
         if (Math.abs(ar.trendAsk - hr.trendAsk) > 0.0001) {
           logger.info(`Error for ${isoDate}: trendAsk is wrong`);
           rates.addRate(ar);

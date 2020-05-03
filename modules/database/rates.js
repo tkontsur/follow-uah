@@ -41,7 +41,9 @@ class Rates {
     maxAsk,
     minBid
   }) {
-    logger.info(`Saving ${date}: ${currency} ${ask} (${trendAsk}) ${bid} (${trendBid})`);
+    logger.info(
+      `Saving ${date}: ${currency} ${ask} (${trendAsk}) ${bid} (${trendBid})`
+    );
     try {
       let updateResult = await this.connection.execute(
         `update RATES
@@ -105,7 +107,7 @@ class Rates {
       if (data[0].length) {
         return data[0].map(this.normalize);
       } else {
-        return null;
+        return [];
       }
     } catch (err) {
       logger.error('Error while fetching rate:.');
