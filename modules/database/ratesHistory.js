@@ -37,7 +37,7 @@ class RatesHistory {
   record({ type, currency, date, trend }) {
     return this.dynamo
       .put({
-        TableName: 'User',
+        TableName: 'RBUpdateHistory',
         Item: {
           currencyType: this.getKey(currency, type),
           date,

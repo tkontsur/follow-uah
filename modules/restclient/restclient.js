@@ -9,12 +9,12 @@ import groupBy from 'lodash/groupBy.js';
 import uniq from 'lodash/uniq.js';
 import moment from 'moment-timezone';
 import redis from 'redis';
-import { promisify } from 'utils';
 import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
 import ratesHistory from '../database/ratesHistory';
+import rawRates from '../database/rawRates.js';
 
 class RestClient {
   constructor(bot) {
@@ -26,11 +26,11 @@ class RestClient {
       lastTriggered: null
     };
 
-    const redisClient = redis.getClient();
+    const redisClient = redis.createClient();
     redisClient.on('error', (error) => {
       logger.error('Faile to connect to Redis');
       logger.error(error);
-      this.redisGet = (key) => this.state[key];
+      this.redisGet = (key) => Promise.resolve(this.state[key]);
       this.redisSet = (key, value) => (this.state[key] = value);
     });
 
@@ -40,8 +40,28 @@ class RestClient {
     this.fetchHistory = this.fetchHistory.bind(this);
     this.updateState = this.updateState.bind(this);
     this.updateMetrics = this.updateMetrics.bind(this);
-    this.redisGet = promisify(redisClient.get).bind(client);
-    this.redisSet = promisify(redisClient.set).bind(client);
+    this.reviseHistory = this.reviseHistory.bind(this);
+
+    this.redisGet = (key) =>
+      new Promise((resolve, reject) =>
+        redisClient.get(key, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        })
+      );
+    this.redisSet = (key, value) =>
+      new Promise((resolve, reject) =>
+        redisClient.set(key, value, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        })
+      );
   }
 
   async fetchData(date) {
@@ -69,13 +89,83 @@ class RestClient {
 
       if (
         !this.state.MB.usd.length ||
-        !this.state.MB.usd[0].pointDate.isSame(nextState[0].pointDate)
+        this.state.MB.usd[0].pointDate.isBefore(nextState[0].pointDate)
       ) {
         nextState.forEach(rates.addRate, rates);
       }
 
       return nextState;
     } catch (e) {
+      logger.error(e);
+    }
+  }
+
+  async reviseHistory() {
+    try {
+      const next =
+        new moment(await this.redisGet('nextHistory')) ||
+        this.nextHistory.clone();
+      next.add(-1, 'd');
+      const isoDate = next.format('YYYY-MM-DD');
+
+      logger.info(`${isoDate}: Fetch revised history triggered`);
+      this.nextHistory = next;
+      this.redisSet('nextHistory', next.format('YYYY-MM-DD'));
+
+      const response = await fetch(
+        `${url}/${token}/${date ? `${date}/` : ''}`,
+        {
+          headers: {
+            'user-agent': 'FollowUahBot/1.0 (https://t.me/FollowUahBot)'
+          }
+        }
+      );
+      const json = await response.json();
+
+      if (!json.length || !new moment(json[0].date).isSame(next, 'd')) {
+        return;
+      }
+
+      rawRates.addDay(json.filter(({ currency }) => currency !== 'rub'));
+
+      const aggregate = this.parseMBResult(json);
+      const history = await rates.getRates(next);
+
+      aggregate.forEach((ar) => {
+        hr = history.find(({ currency }) => currency === ar.currency);
+        if (Math.abs(ar.trendAsk - hr.trendAsk) > 0.0001) {
+          logger.info(`Error for ${isoDate}: trendAsk is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+        if (Math.abs(ar.trendBid - hr.trendBid) > 0.0001) {
+          logger.info(`Error for ${isoDate}: trendBid is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+        if (Math.abs(ar.ask - hr.ask) > 0.0001) {
+          logger.info(`Error for ${isoDate}: ask is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+        if (Math.abs(ar.bid - hr.bid) > 0.0001) {
+          logger.info(`Error for ${isoDate}: bid is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+        if (Math.abs(ar.maxAsk - hr.maxAsk) > 0.0001) {
+          logger.info(`Error for ${isoDate}: maxAsk is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+        if (Math.abs(ar.minBid - hr.minBid) > 0.0001) {
+          logger.info(`Error for ${isoDate}: minBid is wrong`);
+          rates.addRate(ar);
+          return;
+        }
+      });
+    } catch (e) {
+      logger.error('Failed to revise history');
       logger.error(e);
     }
   }
@@ -111,10 +201,16 @@ class RestClient {
 
     if (config.get('api.getHistory')) {
       this.historyUpdates = cron.schedule(
-        '30 0-9,19-23 * * *',
-        this.fetchHistory,
+        '10,50 * * * *',
+        this.reviseHistory,
         options
       );
+
+      this.redisGet('nextHistory').then((h) => {
+        if (!h) {
+          this.redisSet('nextHistory', new moment().format('YYYY-MM-DD'));
+        }
+      });
     }
 
     rates.getLatestDates(4).then((response) => {
