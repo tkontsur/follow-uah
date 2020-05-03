@@ -13,7 +13,7 @@ import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
-import ratesHistory from '../database/ratesHistory';
+import ratesHistory from '../database/ratesHistory.js';
 import rawRates from '../database/rawRates.js';
 
 class RestClient {
@@ -171,6 +171,10 @@ class RestClient {
           return;
         }
       });
+      
+      if (!config.get('api.getHistory')) {
+        this.historyUpdates.stop();
+      }
     } catch (e) {
       logger.error('Failed to revise history');
       logger.error(e);
