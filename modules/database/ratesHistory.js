@@ -16,7 +16,6 @@ class RatesHistory {
       ExpressionAttributeValues: {
         ':key': this.getKey(currency, type)
       },
-      ProjectionExpression: 'date, trend',
       Limit: 1,
       ReturnConsumedCapacity: 'TOTAL'
     };
@@ -25,7 +24,7 @@ class RatesHistory {
       const result = await this.dynamo.query(params).promise();
 
       logger.info(
-        `UpdateHistory teble query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+        `UpdateHistory table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
       );
 
       return result.Items;
@@ -34,21 +33,20 @@ class RatesHistory {
     }
   }
 
-  record({ type, currency, date, trend }) {
+  record(data) {
     return this.dynamo
       .put({
         TableName: 'RBUpdateHistory',
         Item: {
-          currencyType: this.getKey(currency, type),
-          date,
-          trend
+          currencyType: this.getKey(data.currency, data.type),
+          ...data
         },
         ReturnConsumedCapacity: 'TOTAL'
       })
       .promise()
       .then((result) => {
         logger.info(
-          `UpdateHistory teble write consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+          `UpdateHistory table write consumed ${result.ConsumedCapacity.CapacityUnits} units.`
         );
         return result;
       });

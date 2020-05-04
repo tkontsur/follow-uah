@@ -317,12 +317,15 @@ class RestClient {
       Object.keys(metrics)
         .filter((c) => metrics[c] !== 0)
         .forEach((c) => {
-          const { type, date } = state[c][0];
+          const { type, date, maxAsk, minBid } = state[c][0];
+          logger.info(`Recording history: ${type}, ${date.format('YYYY-MM_DD')}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`);
           ratesHistory.record({
             type,
             currency: c,
-            date,
-            trend: metrics[c]
+            date: date.format('YYYY-MM_DD'),
+            trend: metrics[c],
+            maxAsk,
+            minBid
           });
         });
 
