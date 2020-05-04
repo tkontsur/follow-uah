@@ -382,7 +382,7 @@ restClient.tests = {
         const result = await restClient.updateMetrics({ [c]: today }, true);
         const { date, ask, trendAsk, maxAsk } = today[0];
         console.log(
-          `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk) trend ${result[c]}`
+          `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${result[c]}`
         );
       }
     }
