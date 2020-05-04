@@ -318,7 +318,7 @@ class RestClient {
         .filter((c) => metrics[c] !== 0)
         .forEach((c) => {
           const { type, date } = state[c][0];
-          ratesHistory.write({
+          ratesHistory.record({
             type,
             currency: c,
             date,
@@ -380,12 +380,22 @@ restClient.tests = {
         const today = list.slice(i, count - 1);
 
         const result = await restClient.updateMetrics({ [c]: today }, true);
+        const { date, ask, trendAsk, maxAsk } = today[0];
         console.log(
-          `Result for ${today[0].date} (${today[0].ask}, ${today[0].trendAsk}) trend ${result[c]}`
+          `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk) trend ${result[c]}`
         );
       }
     }
     return 'Done';
+  },
+  
+  async resethistory() {
+    restClient.redisSet(
+      'nextHistory',
+      new moment().format('YYYY-MM-DD')
+    );
+    restClient.nextHistory = new moment();
+    return `Reset to ${new moment().format('YYYY-MM-DD')}`;
   }
 };
 
