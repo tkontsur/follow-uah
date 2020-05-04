@@ -18,9 +18,9 @@ class RawRates {
     const date = moment(rates[0].date).format('YYYY-MM-DD');
     const uploadParams = {
       Bucket: config.get('aws.bucket'),
-      Key: `${type}-${moment(rates[0].date).format('YYYY-MM-DD')}`,
+      Key: `${type}-${moment(rates[0].date).format('YYYY-MM-DD')}.json`,
       Body: JSON.stringify(rates),
-      StorageClass: "STANDARD_IA"
+      StorageClass: 'STANDARD_IA'
     };
 
     this.s3
