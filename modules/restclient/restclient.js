@@ -171,7 +171,7 @@ class RestClient {
           return;
         }
       });
-      
+
       if (!config.get('api.getHistory')) {
         this.historyUpdates.stop();
       }
@@ -318,11 +318,15 @@ class RestClient {
         .filter((c) => metrics[c] !== 0)
         .forEach((c) => {
           const { type, date, maxAsk, minBid } = state[c][0];
-          logger.info(`Recording history: ${type}, ${date.format('YYYY-MM_DD')}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`);
+          logger.info(
+            `Recording history: ${type}, ${date.format(
+              'YYYY-MM-DD'
+            )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
+          );
           ratesHistory.record({
             type,
             currency: c,
-            date: date.format('YYYY-MM_DD'),
+            date: date.format('YYYY-MM-DD'),
             trend: metrics[c],
             maxAsk,
             minBid
@@ -391,12 +395,9 @@ restClient.tests = {
     }
     return 'Done';
   },
-  
+
   async resethistory() {
-    restClient.redisSet(
-      'nextHistory',
-      new moment().format('YYYY-MM-DD')
-    );
+    restClient.redisSet('nextHistory', new moment().format('YYYY-MM-DD'));
     restClient.nextHistory = new moment();
     return `Reset to ${new moment().format('YYYY-MM-DD')}`;
   }
