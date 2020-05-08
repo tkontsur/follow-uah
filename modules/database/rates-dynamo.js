@@ -39,6 +39,79 @@ class Rates {
     }
   }
 
+  async getEarliestDate(type, currency) {
+    var params = {
+      TableName: 'RBRate',
+      KeyConditionExpression: '#currencyType = :key',
+      ExpressionAttributeNames: {
+        '#currencyType': 'currencyType'
+      },
+      ExpressionAttributeValues: {
+        ':key': getRateKey(currency, type)
+      },
+      Limit: 1,
+      ReturnConsumedCapacity: 'TOTAL'
+    };
+
+    try {
+      const result = await this.dynamo.query(params).promise();
+
+      logger.info(
+        `Rates table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+      );
+
+      return result.Items.map(this.normalize)[0].date;
+    } catch (e) {
+      logger.error(e);
+    }
+  }
+
+  async getDate(type, currency, date) {
+    var params = {
+      TableName: 'RBRate',
+      KeyConditionExpression: '#currencyType = :key and #date = :startDate',
+      ExpressionAttributeNames: {
+        '#currencyType': 'currencyType',
+        '#date': 'date'
+      },
+      ExpressionAttributeValues: {
+        ':key': getRateKey(currency, type),
+        ':startDate': startDate.format('YYYY-MM-DD')
+      },
+      ReturnConsumedCapacity: 'TOTAL'
+    };
+
+    try {
+      const result = await this.dynamo.query(params).promise();
+
+      logger.info(
+        `Rates table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+      );
+
+      return result.Items.map(this.normalize)[0];
+    } catch (e) {
+      logger.error(e);
+    }
+  }
+
+  async setDate(data) {
+    const { currency, type } = data;
+    const result = await this.dynamo
+      .put({
+        TableName: 'RBRate',
+        Item: {
+          currencyType: getRateKey(currency, type),
+          ...data
+        },
+        ReturnConsumedCapacity: 'TOTAL'
+      })
+      .promise();
+
+    logger.info(
+      `Rates table write consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+    );
+  }
+
   normalize(rate) {
     const { date, pointDate, currencyType, ...rest } = rate;
 
