@@ -15,6 +15,8 @@ import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
 import ratesHistory from '../database/ratesHistory.js';
 import rawRates from '../database/rawRates.js';
+import rates2 from '../database/rates-dynamo.js';
+import { getRateKey } from '../database/utils.js';
 
 class RestClient {
   constructor(bot) {
@@ -22,9 +24,10 @@ class RestClient {
       MB: {
         usd: [],
         eur: []
-      },
-      lastTriggered: null
+      }
     };
+
+    this.lastTriggered = {};
 
     const redisClient = redis.createClient();
     redisClient.on('error', (error) => {
@@ -227,22 +230,30 @@ class RestClient {
       });
     }
 
-    rates.getLatestDates(4).then((response) => {
-      const today = response[0].date;
-      const yesterday = response[response.length - 1].date;
-      const currencies = uniq(response.map((r) => r.currency));
+    const init = [];
 
-      currencies.forEach((c) => {
-        that.state.MB[c] = response.filter((r) => r.currency === c);
-      });
+    Object.keys(this.state).forEach((t) => {
+      Object.keys(this.state[t]).forEach((c) => init.push(this.initRate(t, c)));
+    });
 
+    Promise.all(init).then(() => {
       if (
-        response[0].pointDate.add(2, 'h').isBefore(new moment()) &&
+        that.state.MB.usd[0].pointDate.add(2, 'h').isBefore(new moment()) &&
         new moment().hour() > 9 &&
         new moment().hour() < 19
       ) {
         that.fetchData().then(that.updateState);
       }
+    });
+  }
+
+  async initRate(type, currency) {
+    const latestUpdate = await ratesHistory.getLatestRate(type, currency);
+    this.lastTriggered[getRateKey(currency, type)] = latestUpdate;
+
+    return rates2.getSince(type, currency, latestUpdate.date).then((res) => {
+      this.state[type][currency] = res;
+      return res;
     });
   }
 
@@ -302,10 +313,10 @@ class RestClient {
       }
     });
 
-    this.updateMetrics(this.state.MB);
+    this.updateMetrics('MB', this.state.MB);
   }
 
-  async updateMetrics(state, dontSend) {
+  async updateMetrics(type, state, dontSend) {
     const metrics = {};
     Object.keys(state).forEach(
       (c) => (metrics[c] = instantMetrics.updateMetrics(state[c]))
@@ -331,30 +342,36 @@ class RestClient {
             maxAsk,
             minBid
           });
+          this.state[type][c].splice(2);
         });
 
-      if (
-        this.state.lastTriggered &&
-        this.lastTriggered.isBefore(new moment(), 'd')
-      ) {
-        const sendUsd = metrics.usd !== 0;
-        const allUsers = await users.getSubscribedChats('all');
-        this.lastTriggered = new moment();
-        logger.info(allUsers.length);
+      const sendUsd = metrics.usd !== 0 && this.notSentToday(type, currency);
+      const allUsers = await users.getSubscribedChats('all');
+      logger.info(allUsers.length);
 
-        if (sendUsd) {
-          this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
-        } else {
-          Object.keys(metrics)
-            .filter((c) => metrics[c] !== 0)
-            .forEach((c) =>
-              this.bot.notifyUsers(metrics[c], state[c], allUsers)
-            );
-        }
+      if (sendUsd) {
+        this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+      } else if (this.notSentToday(type)) {
+        Object.keys(metrics)
+          .filter((c) => metrics[c] !== 0 && this.notSentToday(type, c))
+          .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
       }
     }
 
     return metrics;
+  }
+
+  notSentToday(type, currency) {
+    if (currency) {
+      return this.lastTriggered[getRateKey(currency, type)].date.isBefore(
+        new moment(),
+        'd'
+      );
+    } else {
+      return Object.keys(this.lastTriggered)
+        .map((k) => this.lastTriggered[k].date.isBefore(new moment(), 'd'))
+        .reduce((r, k) => r || k, false);
+    }
   }
 }
 
@@ -386,7 +403,11 @@ restClient.tests = {
       for (let i = 0; i < count - 2; i++) {
         const today = list.slice(i, count - 1);
 
-        const result = await restClient.updateMetrics({ [c]: today }, true);
+        const result = await restClient.updateMetrics(
+          'MB',
+          { [c]: today },
+          true
+        );
         const { date, ask, trendAsk, maxAsk } = today[0];
         console.log(
           `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${result[c]}`

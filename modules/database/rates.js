@@ -134,6 +134,25 @@ class Rates {
     }
   }
 
+  async getSince(type, currency, rate) {
+    try {
+      const data = await this.connection.execute(
+        `select * from RATES 
+        order by date desc, type, currency desc
+        where date > ${date} and type = ${type} and currency = ${currency}`
+      );
+
+      if (data[0].length) {
+        return data[0].map(this.normalize);
+      } else {
+        return null;
+      }
+    } catch (err) {
+      logger.error('Error while fetching rate:.');
+      logger.error(err);
+    }
+  }
+
   async getEverything() {
     try {
       const data = await this.connection.execute(

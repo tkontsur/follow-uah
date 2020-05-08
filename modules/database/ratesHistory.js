@@ -1,6 +1,8 @@
 import AWS from 'aws-sdk';
 import config from 'config';
 import logger from '../utils/logger.js';
+import moment from 'moment-timezone';
+import { getRateKey } from './utils.js';
 
 class RatesHistory {
   constructor() {
@@ -14,9 +16,10 @@ class RatesHistory {
       TableName: 'RBUpdateHistory',
       KeyConditionExpression: 'currencyType = :key',
       ExpressionAttributeValues: {
-        ':key': this.getKey(currency, type)
+        ':key': getRateKey(currency, type)
       },
       Limit: 1,
+      ScanIndexForward: false,
       ReturnConsumedCapacity: 'TOTAL'
     };
 
@@ -27,7 +30,11 @@ class RatesHistory {
         `UpdateHistory table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
       );
 
-      return result.Items;
+      if (result.Items.length < 1) {
+        return null;
+      }
+
+      return result.Items.map(this.normalize)[0];
     } catch (e) {
       logger.error(e);
     }
@@ -38,7 +45,7 @@ class RatesHistory {
       .put({
         TableName: 'RBUpdateHistory',
         Item: {
-          currencyType: this.getKey(data.currency, data.type),
+          currencyType: getRateKey(data.currency, data.type),
           ...data
         },
         ReturnConsumedCapacity: 'TOTAL'
@@ -52,8 +59,13 @@ class RatesHistory {
       });
   }
 
-  getKey(currency, type) {
-    return `${currency}-${type}`;
+  normalize(rate) {
+    const { date, currencyType, ...rest } = rate;
+
+    return {
+      date: new moment(date),
+      ...rest
+    };
   }
 }
 
