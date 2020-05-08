@@ -76,7 +76,33 @@ class Rates {
       },
       ExpressionAttributeValues: {
         ':key': getRateKey(currency, type),
-        ':startDate': startDate.format('YYYY-MM-DD')
+        ':startDate': date.format('YYYY-MM-DD')
+      },
+      ReturnConsumedCapacity: 'TOTAL'
+    };
+
+    try {
+      const result = await this.dynamo.query(params).promise();
+
+      logger.info(
+        `Rates table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+      );
+
+      return result.Items.map(this.normalize)[0];
+    } catch (e) {
+      logger.error(e);
+    }
+  }
+  
+  async getEverything(type, currency) {
+    var params = {
+      TableName: 'RBRate',
+      KeyConditionExpression: '#currencyType = :key',
+      ExpressionAttributeNames: {
+        '#currencyType': 'currencyType'
+      },
+      ExpressionAttributeValues: {
+        ':key': getRateKey(currency, type)
       },
       ReturnConsumedCapacity: 'TOTAL'
     };
@@ -96,20 +122,25 @@ class Rates {
 
   async setDate(data) {
     const { currency, type } = data;
-    const result = await this.dynamo
-      .put({
-        TableName: 'RBRate',
-        Item: {
-          currencyType: getRateKey(currency, type),
-          ...data
-        },
-        ReturnConsumedCapacity: 'TOTAL'
-      })
-      .promise();
 
-    logger.info(
-      `Rates table write consumed ${result.ConsumedCapacity.CapacityUnits} units.`
-    );
+    try {
+      const result = await this.dynamo
+        .put({
+          TableName: 'RBRate',
+          Item: {
+            currencyType: getRateKey(currency, type),
+            ...data
+          },
+          ReturnConsumedCapacity: 'TOTAL'
+        })
+        .promise();
+
+      logger.info(
+        `Rates table write consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+      );
+    } catch (e) {
+      logger.error(e);
+    }
   }
 
   normalize(rate) {
