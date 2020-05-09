@@ -12,44 +12,43 @@ class Rates {
     this.dynamo = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10' });
 
     ['usd', 'eur'].forEach(async (c) => {
-      const earliestDate = await this.getEarliestDate('MB', c);
-      const now = new moment();
+      const everything = (await this.getEverything('MB', c)).filter(
+        (r) => r.max_ask > 0
+      );
+      let next = 0;
       let job;
 
       await new Promise(
-        (resolve, reject) =>
-          (job = cron.schedule('* * * * *', async () => {
-            const badData = await this.getDate('MB', c, now);
-            if (badData) {
-              const {
-                date,
-                currency,
-                point_date: pointDate,
-                type,
-                ask,
-                bid,
-                trend_ask: trendAsk,
-                trend_bid: trendBid,
-                max_ask: maxAsk,
-                min_bid: minBid
-              } = badData;
-              this.setDate({
-                date: date.format('YYYY-MM-DD'),
-                currency,
-                pointDate,
-                type,
-                ask,
-                bid,
-                trendAsk,
-                trendBid,
-                maxAsk,
-                minBid
-              });
-              logger.info(`Normalized data for ${date.format('YYYY-MM-DD')}`);
-            }
-            now.add(-1, 'd');
-            if (now.isBefore(earliestDate, 'd')) {
-              logger.info(`Finished normalizing ${c}`);
+        (resolve) =>
+          (job = cron.schedule('* * * * *', () => {
+            const {
+              date,
+              currency,
+              point_date: pointDate,
+              type,
+              ask,
+              bid,
+              trend_ask: trendAsk,
+              trend_bid: trendBid,
+              max_ask: maxAsk,
+              min_bid: minBid
+            } = everything[next++];
+            this.setDate({
+              date: date.format('YYYY-MM-DD'),
+              currency,
+              pointDate,
+              type,
+              ask,
+              bid,
+              trendAsk,
+              trendBid,
+              maxAsk,
+              minBid
+            });
+            console.log(`Normalized data for ${date.format('YYYY-MM-DD')}`);
+
+            if (next === everything.length) {
+              console.log(`Finished normalizing ${c}`);
               job.stop();
               resolve();
             }
@@ -136,6 +135,32 @@ class Rates {
       );
 
       return result.Items.map(this.normalize)[0] || null;
+    } catch (e) {
+      logger.error(e);
+    }
+  }
+
+  async getEverything(type, currency) {
+    var params = {
+      TableName: 'RBRate',
+      KeyConditionExpression: '#currencyType = :key',
+      ExpressionAttributeNames: {
+        '#currencyType': 'currencyType'
+      },
+      ExpressionAttributeValues: {
+        ':key': getRateKey(currency, type)
+      },
+      ReturnConsumedCapacity: 'TOTAL'
+    };
+
+    try {
+      const result = await this.dynamo.query(params).promise();
+
+      logger.info(
+        `Rates table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+      );
+
+      return result.Items.map(this.normalize);
     } catch (e) {
       logger.error(e);
     }
