@@ -6,7 +6,6 @@ import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import groupBy from 'lodash/groupBy.js';
-import uniq from 'lodash/uniq.js';
 import moment from 'moment-timezone';
 import redis from 'redis';
 import rates from '../database/rates.js';
@@ -31,7 +30,7 @@ class RestClient {
 
     const redisClient = redis.createClient();
     redisClient.on('error', (error) => {
-      logger.error('Faile to connect to Redis');
+      logger.error('Failed to connect to Redis');
       logger.error(error);
       this.redisGet = (key) => Promise.resolve(this.state[key]);
       this.redisSet = (key, value) => (this.state[key] = value);
@@ -186,7 +185,7 @@ class RestClient {
 
   async fetchHistory() {
     if (!this.nextHistory) {
-      this.nextHistory = await rates.getEarliestDate();
+      this.nextHistory = await rates2.getEarliestDate();
     }
 
     logger.info(`${new moment().format()}: Fetch history triggered`);
@@ -302,7 +301,7 @@ class RestClient {
     result.forEach((v) => {
       const st = this.state.MB[v.currency];
       if (!st || !st.length) {
-        this.state.MB[v.currency] = v;
+        this.state.MB[v.currency] = [v];
         return;
       }
 
@@ -384,7 +383,7 @@ restClient.tests = {
   },
 
   async getrates() {
-    return await rates.getRates(new moment('2020-04-08'), 'MB');
+    return await rates2.getDate('MB', 'usd', new moment('2020-04-08'));
   },
 
   async allusers() {
@@ -392,16 +391,14 @@ restClient.tests = {
   },
 
   async metrics() {
-    const allData = await rates.getEverything();
-    const currencies = groupBy(allData, 'currency');
     console.log('*** Start instant metrics test ***');
+    ['usd', 'eur'].forEach(async (c) => {
+      const allData = await rates2.getEverything('MB', c);
 
-    for (const c in currencies) {
-      const list = currencies[c];
-      const count = list.length;
+      const count = allData.length;
       console.log(`Evaluating ${c}`);
       for (let i = 0; i < count - 2; i++) {
-        const today = list.slice(i, count - 1);
+        const today = allData.slice(i, count - 1);
 
         const result = await restClient.updateMetrics(
           'MB',
@@ -413,7 +410,7 @@ restClient.tests = {
           `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${result[c]}`
         );
       }
-    }
+    });
     return 'Done';
   },
 
