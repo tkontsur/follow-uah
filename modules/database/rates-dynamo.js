@@ -11,16 +11,16 @@ class Rates {
 
     this.dynamo = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10' });
 
-    ['usd', 'eur'].forEach(async (c) => {
+    ['usd', 'eur'].forEach(async (c, i) => {
       const everything = (await this.getEverything('MB', c)).filter(
         (r) => r.max_ask > 0
       );
       let next = 0;
-      let job;
+      let jobs = [];
 
-      await new Promise(
-        (resolve) =>
-          (job = cron.schedule('* * * * *', () => {
+      await new Promise((resolve) =>
+        jobs.push(
+          cron.schedule('* * * * *', () => {
             const {
               date,
               currency,
@@ -49,10 +49,11 @@ class Rates {
 
             if (next === everything.length) {
               console.log(`Finished normalizing ${c}`);
-              job.stop();
+              jobs[i].stop();
               resolve();
             }
-          }))
+          })
+        )
       );
     });
   }
