@@ -5,7 +5,6 @@ import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
 import min from 'lodash/min.js';
-import groupBy from 'lodash/groupBy.js';
 import moment from 'moment-timezone';
 import redis from 'redis';
 import rates from '../database/rates.js';

@@ -99,6 +99,7 @@ class Rates {
       ExpressionAttributeValues: {
         ':key': getRateKey(currency, type)
       },
+      ScanIndexForward: false,
       ReturnConsumedCapacity: 'TOTAL'
     };
 
