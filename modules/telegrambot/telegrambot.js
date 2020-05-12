@@ -3,6 +3,7 @@ import config from 'config';
 import moment from 'moment';
 import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
+import tests from '../restclient/tests.js';
 import logger from '../utils/logger.js';
 
 export default class UahTelegramBot {
@@ -79,8 +80,8 @@ export default class UahTelegramBot {
   }
 
   triggerTest(msg, match) {
-    if (typeof restClient.tests[match[1]] === 'function') {
-      restClient.tests[match[1]]().then((result) =>
+    if (typeof tests[match[1]] === 'function') {
+      tests[match[1]]().then((result) =>
         this.bot.sendMessage(msg.chat.id, JSON.stringify(result))
       );
     }
