@@ -2,7 +2,6 @@ import moment from 'moment-timezone';
 import restClient from './restclient.js';
 import rates2 from '../database/rates-dynamo.js';
 import users from '../database/users.js';
-import { removeListener } from 'cluster';
 
 export default {
   async fetchnow() {
