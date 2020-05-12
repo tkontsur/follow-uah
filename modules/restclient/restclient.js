@@ -206,7 +206,7 @@ class RestClient {
     };
 
     this.updates = cron.schedule(
-      '30 10-18 * * 1-5',
+      '30 11-18 * * 1-5',
       () => this.fetchData().then(this.updateState),
       options
     );
@@ -249,7 +249,7 @@ class RestClient {
     const latestUpdate = await ratesHistory.getLatestRate(type, currency);
     this.lastTriggered[getRateKey(currency, type)] = latestUpdate;
 
-    return rates2.getSince(type, currency, latestUpdate.date).then((res) => {
+    return rates2.getSince(type, currency, latestUpdate.date.clone().add(-1, 'd')).then((res) => {
       this.state[type][currency] = res;
       return res;
     });
@@ -327,11 +327,13 @@ class RestClient {
         .filter((c) => metrics[c] !== 0)
         .forEach((c) => {
           const { type, date, maxAsk, minBid } = state[c][0];
+          
           logger.info(
             `Recording history: ${type}, ${date.format(
               'YYYY-MM-DD'
             )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
           );
+          
           ratesHistory.record({
             type,
             currency: c,
@@ -340,15 +342,29 @@ class RestClient {
             maxAsk,
             minBid
           });
+          
           this.state[type][c].splice(2);
+          this.lastTriggered[getRateKey(c, type)] = {
+              date,
+              trend: metrics[c],
+              maxAsk,
+              minBid
+            }
         });
 
-      const sendUsd = metrics.usd !== 0 && this.notSentToday(type, currency);
+      const sendUsd = metrics.usd !== 0 && this.notSentToday(type);
       const allUsers = await users.getSubscribedChats('all');
       logger.info(allUsers.length);
 
       if (sendUsd) {
         this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+        this.lastTriggered[getRateKey('usd', type)] = {
+          ...this.lastTriggered[getRateKey('usd', type)],
+          date: new moment(),
+          maxAsk: state.usd.maxAsk,
+          minBid: state.usd.minBid,
+          trend: metrics.usd
+        };
       } else if (this.notSentToday(type)) {
         Object.keys(metrics)
           .filter((c) => metrics[c] !== 0 && this.notSentToday(type, c))
