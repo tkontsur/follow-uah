@@ -58,7 +58,9 @@ export default class UahTelegramBot {
         user,
         `${currency.toUpperCase()} почав ${
           change > 0 ? 'рости' : 'падати'
-        }.\n${this.writeRate(state[0])}`
+        }.
+        Вчора: ${state[1].bid} ${state[1].ask}
+        Сьогодні: ${state[0].bid} (${state[0].trendBid}) ${state[0].ask} (${state[0].trendAsk})`
       )
     );
   }
