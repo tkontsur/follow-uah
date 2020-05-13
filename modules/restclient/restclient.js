@@ -7,7 +7,7 @@ import max from 'lodash/max.js';
 import min from 'lodash/min.js';
 import moment from 'moment-timezone';
 import redis from 'redis';
-import rates from '../database/rates.js';
+//import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
@@ -41,7 +41,7 @@ class RestClient {
     this.fetchHistory = this.fetchHistory.bind(this);
     this.updateState = this.updateState.bind(this);
     this.updateMetrics = this.updateMetrics.bind(this);
-    this.reviseHistory = this.reviseHistory.bind(this);
+    //this.reviseHistory = this.reviseHistory.bind(this);
     this.reviseDay = this.reviseDay.bind(this);
 
     this.redisGet = (key) =>
@@ -94,12 +94,12 @@ class RestClient {
 
       const nextState = this.parseMBResult(json);
 
-      if (
+      /*if (
         !this.state.MB.usd.length ||
         this.state.MB.usd[0].pointDate.isBefore(nextState[0].pointDate)
       ) {
         nextState.forEach(rates.addRate, rates);
-      }
+      }*/
 
       return nextState;
     } catch (e) {
@@ -107,7 +107,7 @@ class RestClient {
     }
   }
 
-  async reviseHistory() {
+  /*async reviseHistory() {
     try {
       const next =
         new moment(await this.redisGet('nextHistory')) ||
@@ -181,7 +181,7 @@ class RestClient {
       logger.error('Failed to revise history');
       logger.error(e);
     }
-  }
+  }*/
 
   async fetchHistory() {
     if (!this.nextHistory) {
@@ -214,7 +214,7 @@ class RestClient {
 
     cron.schedule('0 19 * * 1-5', this.reviseDay, options);
 
-    if (config.get('api.getHistory')) {
+    /*if (config.get('api.getHistory')) {
       this.historyUpdates = cron.schedule(
         '10,50 * * * *',
         this.reviseHistory,
@@ -229,7 +229,7 @@ class RestClient {
           );
         }
       });
-    }
+    }*/
 
     const init = [];
 
