@@ -207,12 +207,12 @@ class RestClient {
     };
 
     this.updates = cron.schedule(
-      '30 11-18 * * 1-5',
+      '30 10-18 * * 1-5',
       () => this.fetchData().then(this.updateState),
       options
     );
 
-    cron.schedule('0 19 * * 1-5', this.reviseDay);
+    cron.schedule('0 19 * * 1-5', this.reviseDay, options);
 
     if (config.get('api.getHistory')) {
       this.historyUpdates = cron.schedule(
@@ -327,57 +327,48 @@ class RestClient {
       }),
       {}
     );
+    const toSend = Object.keys(metrics).filter((c) => metrics[c] !== 0 && this.notSentToday(type), c);
 
-    if (!dontSend && Object.values(metrics).some((v) => v !== 0)) {
+    if (!dontSend && toSend.length > 0) {
       logger.info('Metrics have triggered');
 
-      Object.keys(metrics)
-        .filter((c) => metrics[c] !== 0)
-        .forEach((c) => {
-          const { type, date, maxAsk, minBid } = state[c][0];
-
-          logger.info(
-            `Recording history: ${type}, ${date.format(
-              'YYYY-MM-DD'
-            )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
-          );
-
-          ratesHistory.record({
-            type,
-            currency: c,
-            date: date.format('YYYY-MM-DD'),
-            trend: metrics[c],
-            maxAsk,
-            minBid
-          });
-
-          this.state[type][c].splice(2);
-          this.lastTriggered[getRateKey(c, type)] = {
-            date,
-            trend: metrics[c],
-            maxAsk,
-            minBid
-          };
-        });
-
-      const sendUsd = metrics.usd !== 0 && this.notSentToday(type);
+      const sendUsd = metrics.usd !== 0;
       const allUsers = await users.getSubscribedChats('all');
-      logger.info(allUsers.length);
 
       if (sendUsd) {
         this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
-        this.lastTriggered[getRateKey('usd', type)] = {
-          ...this.lastTriggered[getRateKey('usd', type)],
-          date: new moment(),
-          maxAsk: state.usd.maxAsk,
-          minBid: state.usd.minBid,
-          trend: metrics.usd
-        };
-      } else if (this.notSentToday(type)) {
-        Object.keys(metrics)
-          .filter((c) => metrics[c] !== 0 && this.notSentToday(type, c))
-          .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+      } else {
+        toSend
+        .filter(c => c !== 'usd')
+        .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
       }
+      
+      toSend.forEach((c) => {
+        const { type, date, maxAsk, minBid } = state[c][0];
+
+        logger.info(
+          `Recording history: ${type}, ${date.format(
+            'YYYY-MM-DD'
+          )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
+        );
+
+        ratesHistory.record({
+          type,
+          currency: c,
+          date: date.format('YYYY-MM-DD'),
+          trend: metrics[c],
+          maxAsk,
+          minBid
+        });
+
+        this.state[type][c].splice(2);
+        this.lastTriggered[getRateKey(c, type)] = {
+          date,
+          trend: metrics[c],
+          maxAsk,
+          minBid
+        };
+      });
     }
 
     return metrics;

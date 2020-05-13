@@ -43,7 +43,7 @@ class Users {
       const result = await this.dynamo.query(params).promise();
 
       logger.info(
-        `Users teble scan consumed ${result.ConsumedCapacity.CapacityUnits} units.`
+        `Users table query consumed ${result.ConsumedCapacity.CapacityUnits} units.`
       );
 
       return result.Items.map((i) => i.chatId);
