@@ -3,7 +3,7 @@ import config from 'config';
 import moment from 'moment';
 import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
-import tests from '../restclient/tests.js';
+import { invokeTest } from '../restclient/tests.js';
 import logger from '../utils/logger.js';
 
 export default class UahTelegramBot {
@@ -50,19 +50,21 @@ export default class UahTelegramBot {
       });
   }
 
-  notifyUsers(change, state, chats) {
+  notifyUsers(change, state, chats, dontSend) {
     const { currency } = state[0];
+    const message = `${currency.toUpperCase()} почав ${
+      change > 0 ? 'рости' : 'падати'
+    }.
+Вчора: ${fix(state[1].bid)} ${fix(state[1].ask)}
+Сьогодні: ${fix(state[0].bid)} (${fix(state[0].trendBid)}) ${fix(
+      state[0].ask
+    )} (${fix(state[0].trendAsk)})`;
 
-    chats.forEach((user) =>
-      this.bot.sendMessage(
-        user,
-        `${currency.toUpperCase()} почав ${
-          change > 0 ? 'рости' : 'падати'
-        }.
-        Вчора: ${state[1].bid} ${state[1].ask}
-        Сьогодні: ${state[0].bid} (${state[0].trendBid}) ${state[0].ask} (${state[0].trendAsk})`
-      )
-    );
+    if (!dontSend) {
+      chats.forEach((user) => this.bot.sendMessage(user, message));
+    } else {
+      console.log(message);
+    }
   }
 
   writeRate(
@@ -70,9 +72,9 @@ export default class UahTelegramBot {
     index = -1,
     all = []
   ) {
-    return `${currency.toUpperCase()}: ${bid} ${getTrend(
-      trendBid
-    )} ${ask} ${getTrend(trendAsk)}${
+    return `${currency.toUpperCase()}: ${bid} (${fix(trendBid)}) ${ask} (${fix(
+      trendAsk
+    )})${
       index === all.length - 1
         ? `\nОстаннє оновлення: ${pointDate.format(
             'DD MMMM YYYY HH:mm'
@@ -82,14 +84,12 @@ export default class UahTelegramBot {
   }
 
   triggerTest(msg, match) {
-    if (typeof tests[match[1]] === 'function') {
-      tests[match[1]]().then((result) =>
-        this.bot.sendMessage(msg.chat.id, JSON.stringify(result))
-      );
-    }
+    invokeTest(match[1]).then((response) =>
+      this.bot.sendMessage(msg.chat.id, response)
+    );
   }
 }
 
-function getTrend(value) {
-  return `(${Math.round((value + Number.EPSILON) * 10000) / 10000})`;
+function fix(value) {
+  return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }

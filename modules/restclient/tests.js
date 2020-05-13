@@ -3,7 +3,14 @@ import restClient from './restclient.js';
 import rates2 from '../database/rates-dynamo.js';
 import users from '../database/users.js';
 
-export default {
+export async function invokeTest(test) {
+  if (typeof tests[test] === 'function') {
+    return await tests[test]();
+  } else {
+    return 'Not found';
+  }
+}
+const tests = {
   async fetchnow() {
     const server = await restClient.fetchData('2020-04-08');
 
@@ -51,5 +58,28 @@ export default {
   async revise() {
     restClient.reviseDay();
     return 'Done';
+  },
+
+  async today() {
+    const today = restClient.state.MB.eur[0];
+    const trendAsk = -today.trendAsk;
+    const trendBid = -today.trendBid;
+    const ask = today.maxAsk + trendAsk * 2;
+    const bid = today.minBid + trendBid * 2;
+    const tomorrow = {
+      ...today,
+      ask,
+      bid,
+      trendAsk,
+      trendBid
+    };
+
+    const result = await restClient.updateMetrics(
+      'MB',
+      { eur: [tomorrow, today] },
+      true
+    );
+
+    return result.eur;
   }
 };

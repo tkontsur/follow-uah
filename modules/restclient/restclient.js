@@ -327,22 +327,26 @@ class RestClient {
       }),
       {}
     );
-    const toSend = Object.keys(metrics).filter((c) => metrics[c] !== 0 && this.notSentToday(type), c);
+    const toSend = Object.keys(metrics).filter(
+      (c) => metrics[c] !== 0 && this.notSentToday(type, c)
+    );
 
-    if (!dontSend && toSend.length > 0) {
+    if (toSend.length > 0) {
       logger.info('Metrics have triggered');
 
-      const sendUsd = metrics.usd !== 0;
+      const sendUsd = !!metrics.usd;
       const allUsers = await users.getSubscribedChats('all');
 
       if (sendUsd) {
         this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
       } else {
         toSend
-        .filter(c => c !== 'usd')
-        .forEach((c) => this.bot.notifyUsers(metrics[c], state[c], allUsers));
+          .filter((c) => c !== 'usd')
+          .forEach((c) =>
+            this.bot.notifyUsers(metrics[c], state[c], allUsers, dontSend)
+          );
       }
-      
+
       toSend.forEach((c) => {
         const { type, date, maxAsk, minBid } = state[c][0];
 
@@ -352,14 +356,16 @@ class RestClient {
           )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
         );
 
-        ratesHistory.record({
-          type,
-          currency: c,
-          date: date.format('YYYY-MM-DD'),
-          trend: metrics[c],
-          maxAsk,
-          minBid
-        });
+        if (!dontSend) {
+          ratesHistory.record({
+            type,
+            currency: c,
+            date: date.format('YYYY-MM-DD'),
+            trend: metrics[c],
+            maxAsk,
+            minBid
+          });
+        }
 
         this.state[type][c].splice(2);
         this.lastTriggered[getRateKey(c, type)] = {
