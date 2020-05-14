@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import config from 'config';
-import cron from 'node-cron';
+import { CronJob } from 'cron';
 import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
@@ -201,24 +201,23 @@ class RestClient {
 
   start() {
     const that = this;
-    const options = {
-      scheduled: true,
-      timezone: config.get('default_timezone')
-    };
+    const timezone = config.get('default_timezone');
 
-    this.updates = cron.schedule(
+    this.updates = new CronJob(
       '30 10-18 * * 1-5',
       () => this.fetchData().then(this.updateState),
-      options
+      null,
+      true,
+      timezone
     );
 
-    cron.schedule('0 19 * * 1-5', this.reviseDay, options);
+    new CronJob('0 19 * * 1-5', this.reviseDay, null, true, timezone, this);
 
     /*if (config.get('api.getHistory')) {
-      this.historyUpdates = cron.schedule(
+      this.historyUpdates = new CronJob((
         '10,50 * * * *',
         this.reviseHistory,
-        options
+        null, true, timezone, this
       );
 
       this.redisGet('nextHistory').then((h) => {
