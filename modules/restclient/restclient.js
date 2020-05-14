@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import config from 'config';
-import { CronJob } from 'cron';
+import Cron from 'cron';
 import sortBy from 'lodash/sortBy.js';
 import sumBy from 'lodash/sumBy.js';
 import max from 'lodash/max.js';
@@ -15,6 +15,8 @@ import ratesHistory from '../database/ratesHistory.js';
 import rawRates from '../database/rawRates.js';
 import rates2 from '../database/rates-dynamo.js';
 import { getRateKey } from '../database/utils.js';
+
+const CronJob = Cron.CronJob;
 
 class RestClient {
   constructor(bot) {
