@@ -9,9 +9,19 @@ class RatesHistory {
     AWS.config.update({ region: config.get('aws.region') });
 
     this.dynamo = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10' });
+
+    this.state = {};
+  }
+
+  getAllTriggered() {
+    return this.state;
   }
 
   async getLatestRate(type, currency) {
+    if (this.state[getRateKey(currency, type)]) {
+      return this.state[getRateKey(currency, type)];
+    }
+
     var params = {
       TableName: 'RBUpdateHistory',
       KeyConditionExpression: 'currencyType = :key',
@@ -34,13 +44,17 @@ class RatesHistory {
         return null;
       }
 
-      return result.Items.map(this.normalize)[0];
+      const update = result.Items.map(this.normalize)[0];
+      this.state[getRateKey(currency, type)] = update;
+      return update;
     } catch (e) {
       logger.error(e);
     }
   }
 
   record(data) {
+    this.state[getRateKey(currency, type)] = data;
+
     return this.dynamo
       .put({
         TableName: 'RBUpdateHistory',

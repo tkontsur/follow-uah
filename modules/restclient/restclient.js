@@ -27,8 +27,6 @@ class RestClient {
       }
     };
 
-    this.lastTriggered = {};
-
     const redisClient = redis.createClient();
     redisClient.on('error', (error) => {
       logger.error('Failed to connect to Redis');
@@ -251,7 +249,6 @@ class RestClient {
 
   async initRate(type, currency) {
     const latestUpdate = await ratesHistory.getLatestRate(type, currency);
-    this.lastTriggered[getRateKey(currency, type)] = latestUpdate;
 
     return rates2
       .getSince(type, currency, latestUpdate.date.clone().add(-1, 'd'))
@@ -369,12 +366,6 @@ class RestClient {
         }
 
         this.state[type][c].splice(2);
-        this.lastTriggered[getRateKey(c, type)] = {
-          date,
-          trend: metrics[c],
-          maxAsk,
-          minBid
-        };
       });
     }
 
@@ -382,6 +373,7 @@ class RestClient {
   }
 
   reviseDay() {
+    const lastTriggered = ratesHistory.getAllTriggered();
     const errors = Object.keys(this.state.MB)
       .map((currency) => ({
         currency,
@@ -389,7 +381,7 @@ class RestClient {
       }))
       .filter(
         ({ currency, result }) =>
-          this.lastTriggered[getRateKey(currency, 'MB')] !== result
+          lastTriggered[getRateKey(currency, 'MB')] !== result
       );
 
     errors.forEach(({ currency, result }) =>
@@ -402,14 +394,16 @@ class RestClient {
   }
 
   notSentToday(type, currency) {
+    const lastTriggered = ratesHistory.getAllTriggered();
+
     if (currency) {
-      return this.lastTriggered[getRateKey(currency, type)].date.isBefore(
+      return lastTriggered[getRateKey(currency, type)].date.isBefore(
         new moment(),
         'd'
       );
     } else {
-      return Object.keys(this.lastTriggered)
-        .map((k) => this.lastTriggered[k].date.isBefore(new moment(), 'd'))
+      return Object.keys(lastTriggered)
+        .map((k) => lastTriggered[k].date.isBefore(new moment(), 'd'))
         .reduce((r, k) => r || k, false);
     }
   }
