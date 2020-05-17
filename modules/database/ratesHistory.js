@@ -17,6 +17,19 @@ class RatesHistory {
     return this.state;
   }
 
+  getLatestRateSync(type, currency) {
+    return this.state[getRateKey(currency, type)];
+  }
+
+  setLocal(data) {
+    const key = getRateKey(data.currency, data.type);
+
+    this.state[key] = {
+      currencyType: key,
+      ...data
+    };
+  }
+
   async getLatestRate(type, currency) {
     if (this.state[getRateKey(currency, type)]) {
       return this.state[getRateKey(currency, type)];

@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import restClient from './restclient.js';
 import rates2 from '../database/rates-dynamo.js';
+import ratesHistory from '../database/ratesHistory.js';
 import users from '../database/users.js';
 
 export async function invokeTest(test) {
@@ -29,21 +30,39 @@ const tests = {
     console.log('*** Start instant metrics test ***');
     ['usd', 'eur'].forEach(async (c) => {
       const allData = await rates2.getEverything('MB', c);
-
       const count = allData.length;
+
       console.log(`Evaluating ${c}`);
-      for (let i = 0; i < count - 2; i++) {
-        const today = allData.slice(i, count - 1);
+      ratesHistory.setLocal(allData[count - 1]);
+
+      for (let i = count - 2; i >= 0; i--) {
+        const lastUpdate = ratesHistory.getLatestRateSync('MB', c);
+        const last = allData.findIndex((d) =>
+          d.date.isSame(lastUpdate.date, 'd')
+        );
+        const today = allData.slice(i, last + 1);
 
         const result = await restClient.updateMetrics(
           'MB',
           { [c]: today },
           true
         );
-        const { date, ask, trendAsk, maxAsk } = today[0];
+        const { date, ask, trendAsk, maxAsk, minBid } = today[0];
+
         console.log(
           `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${result[c]}`
         );
+
+        if (result[c]) {
+          ratesHistory.setLocal({
+            type: 'MB',
+            currency: c,
+            date,
+            maxAsk,
+            minBid,
+            trend: result[c]
+          });
+        }
       }
     });
     return 'Done';

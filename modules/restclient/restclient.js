@@ -321,7 +321,7 @@ class RestClient {
     const metrics = Object.keys(state).reduce(
       (result, c) => ({
         ...result,
-        [c]: instantMetrics.updateMetrics(state[c])
+        [c]: instantMetrics.updateMetrics(type, state[c])
       }),
       {}
     );
@@ -329,14 +329,14 @@ class RestClient {
       (c) => metrics[c] !== 0 && this.notSentToday(type, c)
     );
 
-    if (toSend.length > 0) {
+    if (toSend.length > 0 && !dontSend) {
       logger.info('Metrics have triggered');
 
       const sendUsd = !!metrics.usd;
       const allUsers = await users.getSubscribedChats('all');
 
       if (sendUsd) {
-        this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+        this.bot.notifyUsers(metrics.usd, state.usd, allUsers, dontSend);
       } else {
         toSend
           .filter((c) => c !== 'usd')
@@ -348,13 +348,13 @@ class RestClient {
       toSend.forEach((c) => {
         const { type, date, maxAsk, minBid } = state[c][0];
 
-        logger.info(
-          `Recording history: ${type}, ${date.format(
-            'YYYY-MM-DD'
-          )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
-        );
-
         if (!dontSend) {
+          logger.info(
+            `Recording history: ${type}, ${date.format(
+              'YYYY-MM-DD'
+            )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
+          );
+
           ratesHistory.record({
             type,
             currency: c,
@@ -377,7 +377,7 @@ class RestClient {
     const errors = Object.keys(this.state.MB)
       .map((currency) => ({
         currency,
-        result: instantMetrics.updateMetrics(this.state.MB[currency])
+        result: instantMetrics.updateMetrics('MB', this.state.MB[currency])
       }))
       .filter(
         ({ currency, result }) =>
