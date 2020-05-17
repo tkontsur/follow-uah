@@ -27,8 +27,6 @@ class RestClient {
       }
     };
 
-    this.lastTriggered = {};
-
     const redisClient = redis.createClient();
     redisClient.on('error', (error) => {
       logger.error('Failed to connect to Redis');
@@ -251,7 +249,6 @@ class RestClient {
 
   async initRate(type, currency) {
     const latestUpdate = await ratesHistory.getLatestRate(type, currency);
-    this.lastTriggered[getRateKey(currency, type)] = latestUpdate;
 
     return rates2
       .getSince(type, currency, latestUpdate.date.clone().add(-1, 'd'))
@@ -324,7 +321,7 @@ class RestClient {
     const metrics = Object.keys(state).reduce(
       (result, c) => ({
         ...result,
-        [c]: instantMetrics.updateMetrics(state[c])
+        [c]: instantMetrics.updateMetrics(type, state[c])
       }),
       {}
     );
@@ -332,14 +329,14 @@ class RestClient {
       (c) => metrics[c] !== 0 && this.notSentToday(type, c)
     );
 
-    if (toSend.length > 0) {
+    if (toSend.length > 0 && !dontSend) {
       logger.info('Metrics have triggered');
 
       const sendUsd = !!metrics.usd;
       const allUsers = await users.getSubscribedChats('all');
 
       if (sendUsd) {
-        this.bot.notifyUsers(metrics.usd, state.usd, allUsers);
+        this.bot.notifyUsers(metrics.usd, state.usd, allUsers, dontSend);
       } else {
         toSend
           .filter((c) => c !== 'usd')
@@ -351,13 +348,13 @@ class RestClient {
       toSend.forEach((c) => {
         const { type, date, maxAsk, minBid } = state[c][0];
 
-        logger.info(
-          `Recording history: ${type}, ${date.format(
-            'YYYY-MM-DD'
-          )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
-        );
-
         if (!dontSend) {
+          logger.info(
+            `Recording history: ${type}, ${date.format(
+              'YYYY-MM-DD'
+            )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
+          );
+
           ratesHistory.record({
             type,
             currency: c,
@@ -369,12 +366,6 @@ class RestClient {
         }
 
         this.state[type][c].splice(2);
-        this.lastTriggered[getRateKey(c, type)] = {
-          date,
-          trend: metrics[c],
-          maxAsk,
-          minBid
-        };
       });
     }
 
@@ -382,14 +373,15 @@ class RestClient {
   }
 
   reviseDay() {
+    const lastTriggered = ratesHistory.getAllTriggered();
     const errors = Object.keys(this.state.MB)
       .map((currency) => ({
         currency,
-        result: instantMetrics.updateMetrics(this.state.MB[currency])
+        result: instantMetrics.updateMetrics('MB', this.state.MB[currency])
       }))
       .filter(
         ({ currency, result }) =>
-          this.lastTriggered[getRateKey(currency, 'MB')] !== result
+          lastTriggered[getRateKey(currency, 'MB')] !== result
       );
 
     errors.forEach(({ currency, result }) =>
@@ -402,14 +394,16 @@ class RestClient {
   }
 
   notSentToday(type, currency) {
+    const lastTriggered = ratesHistory.getAllTriggered();
+
     if (currency) {
-      return this.lastTriggered[getRateKey(currency, type)].date.isBefore(
+      return lastTriggered[getRateKey(currency, type)].date.isBefore(
         new moment(),
         'd'
       );
     } else {
-      return Object.keys(this.lastTriggered)
-        .map((k) => this.lastTriggered[k].date.isBefore(new moment(), 'd'))
+      return Object.keys(lastTriggered)
+        .map((k) => lastTriggered[k].date.isBefore(new moment(), 'd'))
         .reduce((r, k) => r || k, false);
     }
   }
