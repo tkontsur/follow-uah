@@ -66,13 +66,14 @@ class RatesHistory {
   }
 
   record(data) {
+    const { currency, type } = data;
     this.state[getRateKey(currency, type)] = data;
 
     return this.dynamo
       .put({
         TableName: 'RBUpdateHistory',
         Item: {
-          currencyType: getRateKey(data.currency, data.type),
+          currencyType: getRateKey(currency, type),
           ...data
         },
         ReturnConsumedCapacity: 'TOTAL'

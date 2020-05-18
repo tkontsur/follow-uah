@@ -31,9 +31,13 @@ const tests = {
     ['usd', 'eur'].forEach(async (c) => {
       const allData = await rates2.getEverything('MB', c);
       const count = allData.length;
+      const startTrend = {
+        ...allData[count - 1],
+        trend: allData[count - 1].trendAsk
+      }
 
       console.log(`Evaluating ${c}`);
-      ratesHistory.setLocal(allData[count - 1]);
+      ratesHistory.setLocal(startTrend);
 
       for (let i = count - 2; i >= 0; i--) {
         const lastUpdate = ratesHistory.getLatestRateSync('MB', c);

@@ -134,7 +134,7 @@ class Rates {
     }
   }
 
-  async getSince(type, currency, rate) {
+  async getSince(type, currency, date) {
     try {
       const data = await this.connection.execute(
         `select * from RATES 
