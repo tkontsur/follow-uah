@@ -358,7 +358,7 @@ class RestClient {
           ratesHistory.record({
             type,
             currency: c,
-            date: date.format('YYYY-MM-DD'),
+            date,
             trend: metrics[c],
             maxAsk,
             minBid

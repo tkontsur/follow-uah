@@ -6,6 +6,10 @@ class InstantMetrics {
     const t = days[0];
     const y = days[1];
     const currentTrend = ratesHistory.getLatestRateSync(type, t.currency);
+    
+    if (days.length <= 1) {
+      return 0;
+    } 
 
     /*logger.info(`T: ${t.date} ${t.ask} ${t.bid} ${t.trendAsk} ${t.trendBid}`);
     logger.info(`Y: ${y.date} ${y.ask} ${y.bid} ${y.trendAsk} ${y.trendBid} ${y.maxAsk} ${y.minBid}`);
@@ -13,10 +17,6 @@ class InstantMetrics {
 
     if (!currentTrend) {
       currentTrend = y;
-    }
-
-    if (!y && !currentTrend) {
-      return 0;
     }
 
     // rate has changed direction since yesterday

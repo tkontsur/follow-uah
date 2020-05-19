@@ -104,5 +104,10 @@ const tests = {
     );
 
     return result.eur;
+  },
+  
+  state() {
+    console.log(JSON.stringify(restClient.state));
+    return restClient.state.MB.usd.length + ' ' + restClient.state.MB.eur.length;
   }
 };

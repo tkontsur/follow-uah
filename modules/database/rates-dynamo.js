@@ -14,7 +14,7 @@ class Rates {
   async getSince(type, currency, startDate) {
     var params = {
       TableName: 'RBRate',
-      KeyConditionExpression: '#currencyType = :key and #date > :startDate',
+      KeyConditionExpression: '#currencyType = :key and #date >= :startDate',
       ExpressionAttributeNames: {
         '#currencyType': 'currencyType',
         '#date': 'date'
