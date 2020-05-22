@@ -10,7 +10,7 @@ import redis from 'redis';
 //import rates from '../database/rates.js';
 import users from '../database/users.js';
 import logger from '../utils/logger.js';
-import instantMetrics from '../metrics/instantMetrics.js';
+import metrics from '../metrics/metrics.js';
 import ratesHistory from '../database/ratesHistory.js';
 import rawRates from '../database/rawRates.js';
 import rates2 from '../database/rates-dynamo.js';
@@ -321,7 +321,7 @@ class RestClient {
     const metrics = Object.keys(state).reduce(
       (result, c) => ({
         ...result,
-        [c]: instantMetrics.updateMetrics(type, state[c])
+        [c]: instantMetrics.instantMetrics(type, state[c])
       }),
       {}
     );
@@ -377,7 +377,7 @@ class RestClient {
     const errors = Object.keys(this.state.MB)
       .map((currency) => ({
         currency,
-        result: instantMetrics.updateMetrics('MB', this.state.MB[currency])
+        result: instantMetrics.instantMetrics('MB', this.state.MB[currency])
       }))
       .filter(
         ({ currency, result }) =>
