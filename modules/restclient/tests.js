@@ -3,6 +3,7 @@ import restClient from './restclient.js';
 import rates2 from '../database/rates-dynamo.js';
 import ratesHistory from '../database/ratesHistory.js';
 import users from '../database/users.js';
+import { ExceptionHandler } from 'winston';
 
 export async function invokeTest(test) {
   if (typeof tests[test] === 'function') {
@@ -28,47 +29,61 @@ const tests = {
 
   async metrics() {
     console.log('*** Start instant metrics test ***');
-    ['usd', 'eur'].forEach(async (c) => {
-      const allData = await rates2.getEverything('MB', c);
-      const count = allData.length;
-      const startTrend = {
-        ...allData[count - 1],
-        trend: allData[count - 1].trendAsk
+    const realSubscribers = restClient.subscribers;
+
+    if (!realSubscribers.update.length) {
+      throw 'Subscribers were not an array';
+    }
+    restClient.subscribers.update = [
+      (metrics, state) => {
+        Object.keys(state).forEach((c) => {
+          const { date, ask, trendAsk, maxAsk } = state[c][0];
+          console.log(
+            `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${metrics[c]}`
+          );
+        });
       }
+    ];
 
-      console.log(`Evaluating ${c}`);
-      ratesHistory.setLocal(startTrend);
+    await Promise.all(
+      ['usd', 'eur'].map(async (c) => {
+        const allData = await rates2.getEverything('MB', c);
+        const count = allData.length;
+        const startTrend = {
+          ...allData[count - 1],
+          trend: allData[count - 1].trendAsk
+        };
 
-      for (let i = count - 2; i >= 0; i--) {
-        const lastUpdate = ratesHistory.getLatestRateSync('MB', c);
-        const last = allData.findIndex((d) =>
-          d.date.isSame(lastUpdate.date, 'd')
-        );
-        const today = allData.slice(i, last + 1);
+        console.log(`Evaluating ${c}`);
+        ratesHistory.setLocal(startTrend);
 
-        const result = await restClient.updateMetrics(
-          'MB',
-          { [c]: today },
-          true
-        );
-        const { date, ask, trendAsk, maxAsk, minBid } = today[0];
+        for (let i = count - 2; i >= 0; i--) {
+          const lastUpdate = ratesHistory.getLatestRateSync('MB', c);
+          const last = allData.findIndex((d) =>
+            d.date.isSame(lastUpdate.date, 'd')
+          );
+          const today = allData.slice(i, last + 1);
 
-        console.log(
-          `Result for ${date} (${ask}, T: ${trendAsk}, M: ${maxAsk}) trend ${result[c]}`
-        );
+          const result = await restClient.updateMetrics('MB', { [c]: today });
+          const { date, maxAsk, minBid } = today[0];
 
-        if (result[c]) {
-          ratesHistory.setLocal({
-            type: 'MB',
-            currency: c,
-            date,
-            maxAsk,
-            minBid,
-            trend: result[c]
-          });
+          if (result[c]) {
+            ratesHistory.setLocal({
+              type: 'MB',
+              currency: c,
+              date,
+              maxAsk,
+              minBid,
+              trend: result[c]
+            });
+          }
         }
-      }
-    });
+
+        return true;
+      })
+    );
+
+    restClient.subscribers = realSubscribers;
     return 'Done';
   },
 
@@ -105,9 +120,15 @@ const tests = {
 
     return result.eur;
   },
-  
+
+  trigger() {
+    restClient.trigger('update', { usd: 1, eur: 0 }, restClient.state, 'MB');
+  },
+
   state() {
     console.log(JSON.stringify(restClient.state));
-    return restClient.state.MB.usd.length + ' ' + restClient.state.MB.eur.length;
+    return (
+      restClient.state.MB.usd.length + ' ' + restClient.state.MB.eur.length
+    );
   }
 };

@@ -4,6 +4,7 @@ import moment from 'moment';
 import users from '../database/users.js';
 import restClient from '../restclient/restclient.js';
 import { invokeTest } from '../restclient/tests.js';
+import { fix } from '../database/utils.js';
 import logger from '../utils/logger.js';
 
 export default class UahTelegramBot {
@@ -50,21 +51,8 @@ export default class UahTelegramBot {
       });
   }
 
-  notifyUsers(change, state, chats, dontSend) {
-    const { currency } = state[0];
-    const message = `${currency.toUpperCase()} почав ${
-      change > 0 ? 'рости' : 'падати'
-    }.
-Вчора: ${fix(state[1].bid)} ${fix(state[1].ask)}
-Сьогодні: ${fix(state[0].bid)} (${fix(state[0].trendBid)}) ${fix(
-      state[0].ask
-    )} (${fix(state[0].trendAsk)})`;
-
-    if (!dontSend) {
-      chats.forEach((user) => this.bot.sendMessage(user, message));
-    } else {
-      console.log(message);
-    }
+  notifyUsers(message, chats) {
+    chats.forEach((user) => this.bot.sendMessage(user, message));
   }
 
   writeRate(
@@ -88,8 +76,4 @@ export default class UahTelegramBot {
       this.bot.sendMessage(msg.chat.id, response)
     );
   }
-}
-
-function fix(value) {
-  return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }

@@ -8,7 +8,6 @@ import min from 'lodash/min.js';
 import moment from 'moment-timezone';
 import redis from 'redis';
 //import rates from '../database/rates.js';
-import users from '../database/users.js';
 import logger from '../utils/logger.js';
 import instantMetrics from '../metrics/instantMetrics.js';
 import ratesHistory from '../database/ratesHistory.js';
@@ -25,6 +24,10 @@ class RestClient {
         usd: [],
         eur: []
       }
+    };
+
+    this.subscribers = {
+      update: []
     };
 
     const redisClient = redis.createClient();
@@ -64,6 +67,18 @@ class RestClient {
           }
         })
       );
+  }
+
+  subscribe(event, subscriber) {
+    this.subscribers[event].push(subscriber);
+  }
+
+  onUpdate(subscriber) {
+    this.subscribe('update', subscriber);
+  }
+
+  trigger(event, data, state, type) {
+    this.subscribers[event].forEach((s) => s.apply(null, [data, state, type]));
   }
 
   async fetchData(date) {
@@ -317,7 +332,7 @@ class RestClient {
     this.updateMetrics('MB', this.state.MB);
   }
 
-  async updateMetrics(type, state, dontSend) {
+  async updateMetrics(type, state) {
     const metrics = Object.keys(state).reduce(
       (result, c) => ({
         ...result,
@@ -325,49 +340,25 @@ class RestClient {
       }),
       {}
     );
-    const toSend = Object.keys(metrics).filter(
-      (c) => metrics[c] !== 0 && this.notSentToday(type, c)
-    );
 
-    if (toSend.length > 0 && !dontSend) {
-      logger.info('Metrics have triggered');
+    this.trigger('update', metrics, state, type);
 
-      const sendUsd = !!metrics.usd;
-      const allUsers = await users.getSubscribedChats('all');
-
-      if (sendUsd) {
-        this.bot.notifyUsers(metrics.usd, state.usd, allUsers, dontSend);
-      } else {
-        toSend
-          .filter((c) => c !== 'usd')
-          .forEach((c) =>
-            this.bot.notifyUsers(metrics[c], state[c], allUsers, dontSend)
-          );
-      }
-
-      toSend.forEach((c) => {
+    Object.keys(metrics)
+      .filter((c) => metrics[c] !== 0)
+      .forEach((c) => {
         const { type, date, maxAsk, minBid } = state[c][0];
 
-        if (!dontSend) {
-          logger.info(
-            `Recording history: ${type}, ${date.format(
-              'YYYY-MM-DD'
-            )}, ${c}, ${maxAsk}, ${minBid}, ${metrics[c]}`
-          );
-
-          ratesHistory.record({
-            type,
-            currency: c,
-            date,
-            trend: metrics[c],
-            maxAsk,
-            minBid
-          });
-        }
+        ratesHistory.record({
+          type,
+          currency: c,
+          date,
+          trend: metrics[c],
+          maxAsk,
+          minBid
+        });
 
         this.state[type][c].splice(2);
       });
-    }
 
     return metrics;
   }
@@ -390,21 +381,6 @@ class RestClient {
 
     if (!errors.length) {
       logger.info('Day review: no inconsistencies today.');
-    }
-  }
-
-  notSentToday(type, currency) {
-    const lastTriggered = ratesHistory.getAllTriggered();
-
-    if (currency) {
-      return lastTriggered[getRateKey(currency, type)].date.isBefore(
-        new moment(),
-        'd'
-      );
-    } else {
-      return Object.keys(lastTriggered)
-        .map((k) => lastTriggered[k].date.isBefore(new moment(), 'd'))
-        .reduce((r, k) => r || k, false);
     }
   }
 }
