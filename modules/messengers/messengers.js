@@ -21,7 +21,7 @@ class Messengers {
 
       const sendUsd = !!metrics.usd;
       const allUsers = await users.getSubscribedChats('all');
-      const telegramChannel = congig.get('sm.telegramChannel');
+      const telegramChannel = config.get('sm.telegramChannel');
 
       if (sendUsd) {
         this.telegrambot.notifyUsers(
