@@ -1,11 +1,10 @@
 import moment from 'moment-timezone';
+import config from 'config';
 import logger from '../utils/logger.js';
 import users from '../database/users.js';
 import ratesHistory from '../database/ratesHistory.js';
 import TelegramBot from '../telegrambot/telegrambot.js';
 import { getRateKey, fix } from '../database/utils.js';
-
-const CHANNEL = '';
 
 class Messengers {
   constructor() {
@@ -22,11 +21,12 @@ class Messengers {
 
       const sendUsd = !!metrics.usd;
       const allUsers = await users.getSubscribedChats('all');
+      const telegramChannel = congig.get('sm.telegramChannel');
 
       if (sendUsd) {
         this.telegrambot.notifyUsers(
           this.getMessageText(metrics.usd, state[type].usd),
-          CHANNEL ? [...allUsers, CHANNEL] : allUsers
+          telegramChannel ? [...allUsers, telegramChannel] : allUsers
         );
       } else {
         toSend
