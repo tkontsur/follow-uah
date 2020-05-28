@@ -25,13 +25,8 @@ class Messengers {
 
       if (sendUsd) {
         this.telegrambot.notifyUsers(
-<<<<<<< HEAD
           this.getMessageText(metrics.usd, state.usd),
-          CHANNEL ? [...allUsers, CHANNEL] : allUsers
-=======
-          this.getMessageText(metrics.usd, state[type].usd),
           telegramChannel ? [...allUsers, telegramChannel] : allUsers
->>>>>>> 8b73e67e42d0e25522d5f92900884f8d0821f9ab
         );
       } else {
         toSend
