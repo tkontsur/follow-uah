@@ -25,7 +25,7 @@ class Messengers {
 
       if (sendUsd) {
         this.telegrambot.notifyUsers(
-          this.getMessageText(metrics.usd, state[type].usd),
+          this.getMessageText(metrics.usd, state.usd),
           CHANNEL ? [...allUsers, CHANNEL] : allUsers
         );
       } else {
@@ -33,7 +33,7 @@ class Messengers {
           .filter((c) => c !== 'usd')
           .forEach((c) =>
             this.telegrambot.notifyUsers(
-              this.getMessageText(metrics[c], state[type][c]),
+              this.getMessageText(metrics[c], state[c]),
               allUsers
             )
           );
