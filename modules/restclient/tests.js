@@ -3,7 +3,6 @@ import restClient from './restclient.js';
 import rates2 from '../database/rates-dynamo.js';
 import ratesHistory from '../database/ratesHistory.js';
 import users from '../database/users.js';
-import { ExceptionHandler } from 'winston';
 
 export async function invokeTest(test) {
   if (typeof tests[test] === 'function') {
@@ -30,10 +29,13 @@ const tests = {
   async metrics() {
     console.log('*** Start instant metrics test ***');
     const realSubscribers = restClient.subscribers;
+    const realRecord = ratesHistory.record;
 
     if (!realSubscribers.update.length) {
       throw 'Subscribers were not an array';
     }
+
+    ratesHistory.record = ratesHistory.setLocal;
     restClient.subscribers.update = [
       (metrics, state) => {
         Object.keys(state).forEach((c) => {
@@ -84,6 +86,7 @@ const tests = {
     );
 
     restClient.subscribers = realSubscribers;
+    ratesHistory.record = realRecord;
     return 'Done';
   },
 
