@@ -126,6 +126,7 @@ const tests = {
 
   trigger() {
     restClient.trigger('update', { usd: 1, eur: 0 }, restClient.state, 'MB');
+    return 'Done';
   },
 
   state() {

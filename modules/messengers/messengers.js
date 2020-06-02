@@ -9,6 +9,7 @@ import { getRateKey, fix } from '../database/utils.js';
 class Messengers {
   constructor() {
     this.telegrambot = new TelegramBot();
+    this.send = this.send.bind(this);
   }
 
   async onRatesUpdate(metrics, state, type) {
@@ -24,7 +25,7 @@ class Messengers {
       const telegramChannel = config.get('sm.telegramChannel');
 
       if (sendUsd) {
-        this.telegrambot.notifyUsers(
+        this.send(
           this.getMessageText(metrics.usd, state.usd),
           telegramChannel ? [...allUsers, telegramChannel] : allUsers
         );
@@ -32,10 +33,7 @@ class Messengers {
         toSend
           .filter((c) => c !== 'usd')
           .forEach((c) =>
-            this.telegrambot.notifyUsers(
-              this.getMessageText(metrics[c], state[c]),
-              allUsers
-            )
+            this.send(this.getMessageText(metrics[c], state[c]), allUsers)
           );
       }
     }
@@ -76,6 +74,14 @@ ${yesterdayText}: ${fix(state[1].bid)} ${fix(state[1].ask)}
       return Object.keys(lastTriggered)
         .map((k) => lastTriggered[k].date.isBefore(new moment(), 'd'))
         .reduce((r, k) => r || k, false);
+    }
+  }
+
+  send(message, users) {
+    if (!config.get('noMessages')) {
+      this.telegrambot.notifyUsers(message, users);
+    } else {
+      console.log(`Sending: ${message}`);
     }
   }
 }

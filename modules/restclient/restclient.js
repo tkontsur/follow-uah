@@ -253,7 +253,7 @@ class RestClient {
 
     Promise.all(init).then(() => {
       if (
-        that.state.MB.usd[0].pointDate.add(2, 'h').isBefore(new moment()) &&
+        that.state.MB.usd[0].pointDate.add(3, 'h').isBefore(new moment()) &&
         new moment().hour() > 9 &&
         new moment().hour() < 19
       ) {
