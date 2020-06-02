@@ -46,7 +46,7 @@ class Messengers {
     const yesterdayText =
       state[0].date.diff(state[1].date, 'd') === 1
         ? 'Вчора'
-        : state[1].pointDate.dormat('D MMMM');
+        : state[1].pointDate.format('D MMMM');
 
     switch (metrics) {
       case 1:
