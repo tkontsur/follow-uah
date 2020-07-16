@@ -219,14 +219,12 @@ class RestClient {
     const timezone = config.get('default_timezone');
 
     this.updates = new CronJob(
-      '30 10-18 * * 1-5',
+      '30 13,17 * * 1-5',
       () => this.fetchData().then(this.updateState),
       null,
       true,
       timezone
     );
-
-    new CronJob('0 19 * * 1-5', this.reviseDay, null, true, timezone, this);
 
     /*if (config.get('api.getHistory')) {
       this.historyUpdates = new CronJob((
