@@ -42,9 +42,11 @@ class Messengers {
   getMessageText(metrics, state) {
     const { currency } = state[0];
     const yesterdayText =
-      state[0].date.diff(state[1].date, 'd') === 1
+      state[0].date.diff(state[1].date, 'd') <= 1
         ? 'Вчора'
         : state[1].pointDate.format('D MMMM');
+        
+    logger.info(`Time difference: ${state[0].date.diff(state[1].date, 'd')}. Today: ${state[0].date.format()}, yesterday: ${state[1].date.format()}`);
 
     switch (metrics) {
       case 1:

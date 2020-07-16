@@ -52,7 +52,13 @@ export default class UahTelegramBot {
   }
 
   notifyUsers(message, chats) {
-    chats.forEach((user) => this.bot.sendMessage(user, message));
+    chats.forEach((user) => {
+      try {
+        this.bot.sendMessage(user, message);
+      } catch (e) {
+        logger.error(`Failed to send update to user ${user}`, e);
+      }
+    });
   }
 
   writeRate(
