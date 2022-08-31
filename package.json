@@ -15,7 +15,7 @@
     "cron": "^1.8.2",
     "lodash": "^4.17.15",
     "moment": "^2.25.1",
-    "moment-timezone": "^0.5.28",
+    "moment-timezone": "^0.5.35",
     "mysql2": "^2.1.0",
     "node": "^13.12.0",
     "node-fetch": "^2.6.0",
